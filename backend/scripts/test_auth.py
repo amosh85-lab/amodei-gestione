@@ -10,10 +10,28 @@ from __future__ import annotations
 import argparse
 import getpass
 import json
+import ssl
 import sys
 from typing import Any
 from urllib import request as urlrequest
 from urllib.error import HTTPError, URLError
+
+
+def _build_ssl_context() -> ssl.SSLContext | None:
+    """Return an SSL context bound to certifi's CA bundle.
+
+    Avoids the macOS-pyenv/Homebrew "certificate verify failed" trap where
+    Python is configured against a system trust store that doesn't exist.
+    Falls back to the stdlib default if certifi isn't installed.
+    """
+    try:
+        import certifi
+    except ImportError:
+        return None
+    return ssl.create_default_context(cafile=certifi.where())
+
+
+_SSL_CTX = _build_ssl_context()
 
 
 def http_call(
@@ -31,8 +49,11 @@ def http_call(
     if token:
         headers["Authorization"] = f"Bearer {token}"
     req = urlrequest.Request(url, data=data, method=method, headers=headers)
+    open_kwargs: dict[str, Any] = {"timeout": timeout}
+    if url.startswith("https://") and _SSL_CTX is not None:
+        open_kwargs["context"] = _SSL_CTX
     try:
-        with urlrequest.urlopen(req, timeout=timeout) as resp:
+        with urlrequest.urlopen(req, **open_kwargs) as resp:
             raw = resp.read()
             return resp.status, (json.loads(raw) if raw else None)
     except HTTPError as exc:
