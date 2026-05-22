@@ -8,6 +8,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.config import get_settings
 from app.database import Base, _normalise_url
+import app.models  # noqa: F401  — register all ORM models in Base.metadata
 
 # Alembic Config object, providing access to values in alembic.ini.
 config = context.config
@@ -19,8 +20,6 @@ settings = get_settings()
 if settings.database_url:
     config.set_main_option("sqlalchemy.url", _normalise_url(settings.database_url))
 
-# Import models here so Alembic's autogenerate can see them.
-# (None yet — added in later prompts.)
 target_metadata = Base.metadata
 
 

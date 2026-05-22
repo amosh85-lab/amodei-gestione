@@ -1,1 +1,93 @@
-"""ORM models — populated in later prompts."""
+"""Amodei ORM models — re-exports for convenience and metadata registration.
+
+Importing this package is enough to register every model in ``Base.metadata``,
+which is what Alembic's autogenerate uses as the target.
+"""
+from __future__ import annotations
+
+from app.models.base import (
+    AmodeiBase,
+    SERVICE_KIND_ENUM,
+    ServiceKind,
+    TimestampMixin,
+    pg_enum,
+)
+from app.models.cash import (
+    DailySummary,
+    Expense,
+    ExpenseCategory,
+    PosSession,
+)
+from app.models.inventory import (
+    COMMON_UNITS,
+    Batch,
+    Movement,
+    MovementType,
+    Product,
+    Supplier,
+    VatRate,
+)
+from app.models.inventory_close import EveningClose, EveningCloseItem
+from app.models.menu import CombinedDish, CombinedDishComponent
+from app.models.reorder import (
+    StockAlert,
+    StockAlertSource,
+    StockAlertStatus,
+    StockSignaledStatus,
+    SupplierOrder,
+    SupplierOrderLine,
+    SupplierOrderStatus,
+)
+from app.models.settings import AppSetting, AppSettingValueType
+from app.models.staff_meals import (
+    StaffMeal,
+    StaffMealItem,
+    StaffMealParticipant,
+)
+from app.models.users import User, UserRole
+
+__all__ = [
+    # base
+    "AmodeiBase",
+    "TimestampMixin",
+    "ServiceKind",
+    "SERVICE_KIND_ENUM",
+    "pg_enum",
+    # users
+    "User",
+    "UserRole",
+    # inventory
+    "COMMON_UNITS",
+    "Supplier",
+    "Product",
+    "Batch",
+    "Movement",
+    "MovementType",
+    "VatRate",
+    # menu
+    "CombinedDish",
+    "CombinedDishComponent",
+    # inventory_close
+    "EveningClose",
+    "EveningCloseItem",
+    # staff_meals
+    "StaffMeal",
+    "StaffMealParticipant",
+    "StaffMealItem",
+    # reorder
+    "StockAlert",
+    "StockSignaledStatus",
+    "StockAlertStatus",
+    "StockAlertSource",
+    "SupplierOrder",
+    "SupplierOrderStatus",
+    "SupplierOrderLine",
+    # cash
+    "ExpenseCategory",
+    "PosSession",
+    "Expense",
+    "DailySummary",
+    # settings
+    "AppSetting",
+    "AppSettingValueType",
+]
