@@ -1,0 +1,94 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background-color: var(--cream-soft);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.boot {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: var(--space-6);
+}
+
+.boot__card {
+  background: var(--off-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-12) var(--space-8);
+  text-align: center;
+  max-width: 28rem;
+  width: 100%;
+}
+
+.boot__brand {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 3rem;
+  color: var(--terracotta);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.boot__tagline {
+  font-size: 0.95rem;
+  color: var(--ink-muted);
+  margin: var(--space-2) 0 var(--space-8);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.boot__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.boot__status--pending {
+  background: rgba(212, 161, 85, 0.15);
+  color: var(--amber);
+}
+
+.boot__status--ok {
+  background: rgba(61, 90, 61, 0.12);
+  color: var(--bottle-green);
+}
+
+.boot__status--error {
+  background: rgba(181, 57, 31, 0.10);
+  color: var(--terracotta-dark);
+}
+
+.boot__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.boot__detail {
+  margin-top: var(--space-6);
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  word-break: break-all;
+}
