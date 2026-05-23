@@ -97,28 +97,27 @@ def update_summary(
     changes = payload.model_dump(exclude_unset=True)
 
     # Snapshot the cash_float setting the first time ANY cash count is
-    # provided (lunch above-float OR end-of-day) — whichever comes first.
-    introducing_lunch = changes.get("cash_lunch_above_float") is not None and row.cash_lunch_above_float is None
-    introducing_end   = changes.get("cash_total_end_of_day")  is not None and row.cash_total_end_of_day  is None
-    no_cash_yet = row.cash_lunch_above_float is None and row.cash_total_end_of_day is None
-    if (introducing_lunch or introducing_end) and no_cash_yet:
+    # provided (lunch above-float OR dinner above-float) — whichever comes first.
+    # The float itself isn't used in any computation; this is informational.
+    introducing_lunch  = changes.get("cash_lunch_above_float")  is not None and row.cash_lunch_above_float  is None
+    introducing_dinner = changes.get("cash_dinner_above_float") is not None and row.cash_dinner_above_float is None
+    no_cash_yet = row.cash_lunch_above_float is None and row.cash_dinner_above_float is None
+    if (introducing_lunch or introducing_dinner) and no_cash_yet:
         row.cash_float_snapshot = get_cash_float(session)
 
     for k, v in changes.items():
         setattr(row, k, v)
 
-    # If all three totals are filled, mark the row closed (forward-only)
-    filled = sum(1 for v in (
-        row.cash_total_end_of_day, row.fiscal_total, row.ipratico_total
-    ) if v is not None)
-    if filled == 3 and row.closed_at is None:
+    # Closed when both cash inputs AND both reconciliation totals are filled.
+    cash_complete = row.cash_lunch_above_float is not None and row.cash_dinner_above_float is not None
+    if cash_complete and row.fiscal_total is not None and row.ipratico_total is not None and row.closed_at is None:
         row.closed_at = datetime.now(timezone.utc)
         row.closed_by_user_id = user.id
 
     session.commit()
     session.refresh(row)
     logger.info(
-        "DailySummary %s aggiornato (status filled=%d) by user_id=%d",
-        day.isoformat(), filled, user.id,
+        "DailySummary %s aggiornato by user_id=%d",
+        day.isoformat(), user.id,
     )
     return _attach_creator_names(session, calculate_summary(session, day))

@@ -122,11 +122,11 @@ export async function mountCashPage(container, _params, query) {
 
     // Cash input + partial config per service
     const isLunch = service === 'lunch';
-    const cashField     = isLunch ? 'cash_lunch_above_float' : 'cash_total_end_of_day';
-    const cashLabel     = isLunch ? 'Cash extra fondo a fine pranzo' : 'Cash totale fine giornata';
+    const cashField     = isLunch ? 'cash_lunch_above_float' : 'cash_dinner_above_float';
+    const cashLabel     = isLunch ? 'Cash extra fondo a fine pranzo' : 'Cash extra fondo a fine serata';
     const cashSub       = isLunch
       ? 'Tutto il contante presente in cassa MENO il fondo, a fine servizio pranzo.'
-      : 'TUTTO il contante presente in cassa a fine serata (inclusivo del fondo).';
+      : 'Tutto il contante presente in cassa MENO il fondo, a fine serata.';
     const cashValue     = s[cashField];
     const partialField  = isLunch ? 'partial_lunch' : 'partial_dinner';
     const partialValue  = s[partialField];
@@ -218,20 +218,11 @@ export async function mountCashPage(container, _params, query) {
     const s = state.summary;
     if (!s) return '<p class="muted">Caricamento…</p>';
 
-    const cashEnd = s.cash_total_end_of_day;
-    const cashLow = cashEnd != null && Number(cashEnd) < Number(s.cash_float);
     const closedBanner = s.status === 'closed'
       ? `<div class="alert alert--info" style="margin-bottom: var(--space-16);">
           <span class="alert__icon">${icon('check', { size: 22 })}</span>
           <div class="alert__body"><strong>Giornata chiusa</strong>
             <p class="alert__text">${s.closed_at ? `Chiusa il ${formatDateTime(s.closed_at)}${s.closed_by_name ? ` da ${escapeHtml(s.closed_by_name)}` : ''}` : ''}</p></div>
-        </div>`
-      : '';
-
-    const cashWarning = cashLow
-      ? `<div class="alert alert--warn" style="margin-bottom: var(--space-16);">
-          <span class="alert__icon">${icon('warning', { size: 22 })}</span>
-          <div class="alert__body"><strong>Attenzione: meno del fondo cassa.</strong><p class="alert__text">Verifica la conta del cassetto.</p></div>
         </div>`
       : '';
 
@@ -244,7 +235,6 @@ export async function mountCashPage(container, _params, query) {
 
     return `
       ${closedBanner}
-      ${cashWarning}
 
       <!-- Dark summary card -->
       <div style="background: var(--ink); color: var(--off-white); border-radius: var(--radius-xl); padding: var(--space-24); box-shadow: var(--shadow-lg);">
@@ -253,14 +243,14 @@ export async function mountCashPage(container, _params, query) {
 
         <!-- Read-only breakdown by service -->
         <div style="margin-top: var(--space-20); padding-top: var(--space-20); border-top: 1px solid rgba(255,255,255,0.15);">
-          ${darkRow('Fondo cassa', `€ ${formatMoney(s.cash_float)}`, 'snapshot della giornata')}
           ${darkRow('Parziale pranzo', lunchHint, 'inserito nel tab Pranzo')}
-          ${darkRow('Parziale cena', dinnerHint, 'inserito nel tab Cena (cash fine serata)')}
+          ${darkRow('Parziale cena', dinnerHint, 'inserito nel tab Cena')}
           ${s.cash_incassato != null ? `
             <div style="display: flex; justify-content: space-between; padding: var(--space-8) 0; opacity: 0.85; color: inherit;">
               <span style="font-style: italic; color: inherit;">→ Cash incassato (totale)</span>
               <span style="font-style: italic; font-family: var(--font-display); color: inherit;">€ ${formatMoney(s.cash_incassato)}</span>
             </div>` : ''}
+          ${darkRow('Fondo cassa', `€ ${formatMoney(s.cash_float)}`, 'snapshot informativo, non entra nei calcoli')}
         </div>
 
         <div style="margin-top: var(--space-16); padding-top: var(--space-16); border-top: 1px solid rgba(255,255,255,0.15);">
@@ -391,10 +381,10 @@ export async function mountCashPage(container, _params, query) {
     // Summary inputs — open a numpad with the right title.
     // Buttons live in both the per-service tabs and the Totale tab.
     const SUMMARY_LABELS = {
-      cash_lunch_above_float: 'Cash extra fondo a fine pranzo',
-      cash_total_end_of_day:  'Cash totale fine giornata',
-      fiscal_total:           'Totale fiscale',
-      ipratico_total:         'Totale Ipratico',
+      cash_lunch_above_float:  'Cash extra fondo a fine pranzo',
+      cash_dinner_above_float: 'Cash extra fondo a fine serata',
+      fiscal_total:            'Totale fiscale',
+      ipratico_total:          'Totale Ipratico',
     };
     container.querySelectorAll('[data-summary-field]').forEach((btn) => {
       btn.addEventListener('click', () => {

@@ -79,9 +79,12 @@ class DailySummary(AmodeiBase):
     date: Mapped[date_type] = mapped_column(Date, nullable=False, unique=True)
     # Cash extra above the float at END OF LUNCH (input by manager at lunch close).
     # Lets the UI surface a "parziale pranzo" without waiting for end of day.
+    # NETTO: cash above the float, never includes the float itself.
     cash_lunch_above_float: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
-    # End-of-day TOTAL cash in the drawer — INCLUDES the opening cash float.
-    cash_total_end_of_day: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    # Cash extra above the float for the DINNER service (input at end of day).
+    # NETTO: cash above the float — the manager sets the float aside first,
+    # counts only what remains, and inputs that. Float never enters this number.
+    cash_dinner_above_float: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     fiscal_total: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     ipratico_total: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     # Snapshot of the cash_float setting at close time — preserves history

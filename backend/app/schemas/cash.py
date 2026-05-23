@@ -105,7 +105,7 @@ class DailySummaryUpdate(BaseModel):
     """All fields optional → PATCH semantics. notes is also patchable."""
 
     cash_lunch_above_float: Decimal | None = Field(default=None, ge=0)
-    cash_total_end_of_day: Decimal | None = Field(default=None, ge=0)
+    cash_dinner_above_float: Decimal | None = Field(default=None, ge=0)
     fiscal_total: Decimal | None = Field(default=None, ge=0)
     ipratico_total: Decimal | None = Field(default=None, ge=0)
     notes: str | None = None
@@ -114,14 +114,17 @@ class DailySummaryUpdate(BaseModel):
 class DailySummaryOut(BaseModel):
     """Single source of truth for the cash dashboard.
 
-    Fields starting with the underscore convention (cash_total_end_of_day,
-    fiscal_total, ipratico_total, notes) come from the row. Everything else
+    The two cash inputs (cash_lunch_above_float, cash_dinner_above_float),
+    fiscal_total, ipratico_total, notes come from the row. Everything else
     is computed live in :func:`services.cash.calculate_summary` so the UI
     can render the day's numbers without any further math.
+
+    Both cash inputs are NETTO: cash above the float, never including the
+    float itself. The float is only an informational snapshot here.
     """
 
     date: date_type
-    cash_float: Decimal               # snapshot if closed, else current setting
+    cash_float: Decimal               # snapshot if any cash input set, else current setting
 
     pos_lunch: Decimal = Decimal("0")
     pos_dinner: Decimal = Decimal("0")
@@ -136,15 +139,14 @@ class DailySummaryOut(BaseModel):
     cash_lunch_incassato: Decimal | None = None    # above_float_lunch + expenses_lunch
     partial_lunch: Decimal | None = None           # pos_lunch + cash_lunch_incassato
 
-    # End-of-day inputs + derived totals
-    cash_total_end_of_day: Decimal | None = None
-    cash_above_float: Decimal | None = None     # max(0, end - float)
+    # Dinner close (input) + derived partial
+    cash_dinner_above_float: Decimal | None = None
+    cash_dinner_incassato: Decimal | None = None   # above_float_dinner + expenses_dinner
+    partial_dinner: Decimal | None = None          # pos_dinner + cash_dinner_incassato
+
+    # Totals (available once at least one cash input is set)
+    cash_above_float: Decimal | None = None     # lunch + dinner above (treating missing as 0)
     cash_incassato: Decimal | None = None       # above_float + expenses_total
-
-    # Dinner partial (derived once cash_total_end_of_day is set)
-    cash_dinner_incassato: Decimal | None = None
-    partial_dinner: Decimal | None = None
-
     computed_total: Decimal | None = None       # pos_total + cash_incassato
 
     fiscal_total: Decimal | None = None

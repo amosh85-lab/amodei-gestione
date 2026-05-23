@@ -233,36 +233,36 @@ def main():
             fatal(f"status atteso 'partial' dopo cash_lunch, ottenuto {summary['status']}")
         if not near(summary["cash_float"], 100.00):
             fatal(f"snapshot cash_float atteso 100 dopo cash_lunch, ottenuto {summary['cash_float']}")
-        # End-of-day non ancora valorizzato → cash_above_float / partial_dinner null
-        if summary["cash_above_float"] is not None or summary["partial_dinner"] is not None:
-            fatal("cash_above_float / partial_dinner devono essere null prima del totale serale")
+        # Dinner non ancora valorizzato → cash_above_float / partial_dinner / computed_total null
+        if summary["cash_above_float"] is not None or summary["partial_dinner"] is not None or summary["computed_total"] is not None:
+            fatal("cash_above_float / partial_dinner / computed_total devono essere null prima del cash cena")
         print(f"  ✓ partial_lunch={summary['partial_lunch']} · "
               f"cash_lunch_incassato={summary['cash_lunch_incassato']} · "
               f"snapshot cash_float={summary['cash_float']}")
 
-        # 9b) PATCH cash_total_end_of_day = 362,70 → tutti i partial + computed
-        step(10, "PATCH cash_total_end_of_day = 362,70 → partial_dinner=551, computed=1.176,00")
+        # 9b) PATCH cash_dinner_above_float = 250 → tutti i partial + computed
+        step(10, "PATCH cash_dinner_above_float = 250 → partial_dinner=818,30, computed=1.443,30")
         s, summary = http_call("PATCH", f"{base}/daily-summary/{today}",
-                                body={"cash_total_end_of_day": "362.70"}, token=token)
-        assert_status(s, 200, "patch cash", summary)
-        # cash_above_float = 362,70 − 100 = 262,70
-        # cash_dinner_above = 262,70 − 280 = −17,30 (drawer cala nel pomeriggio per spese cassa)
-        # cash_dinner_incassato = −17,30 + 32,80 = 15,50
-        # partial_dinner = 535,50 + 15,50 = 551,00
-        # cash_incassato totale = 262,70 + 65,80 = 328,50
-        # computed_total = 847,50 + 328,50 = 1176,00
-        for k, expected in [("cash_above_float", 262.70),
-                            ("cash_incassato", 328.50),
-                            ("cash_dinner_incassato", 15.50),
-                            ("partial_dinner", 551.00),
-                            ("computed_total", 1176.00)]:
+                                body={"cash_dinner_above_float": "250.00"}, token=token)
+        assert_status(s, 200, "patch dinner cash", summary)
+        # cash_dinner_incassato = 250 + 32,80 = 282,80
+        # partial_dinner = 535,50 + 282,80 = 818,30
+        # cash_above_float = 280 + 250 = 530
+        # cash_incassato totale = 530 + 65,80 = 595,80
+        # computed_total = 847,50 + 595,80 = 1.443,30
+        for k, expected in [("cash_dinner_above_float", 250.00),
+                            ("cash_dinner_incassato", 282.80),
+                            ("partial_dinner", 818.30),
+                            ("cash_above_float", 530.00),
+                            ("cash_incassato", 595.80),
+                            ("computed_total", 1443.30)]:
             if not near(summary[k], expected):
                 fatal(f"{k} atteso {expected}, ottenuto {summary[k]}")
         if summary["status"] != "partial":
             fatal(f"status atteso 'partial', ottenuto {summary['status']}")
         if not near(summary["cash_float"], 100.00):
-            fatal(f"cash_float atteso 100.00, ottenuto {summary['cash_float']}")
-        # Sanity: partial_lunch + partial_dinner == computed_total
+            fatal(f"cash_float atteso 100.00 (snapshot), ottenuto {summary['cash_float']}")
+        # Invariante: partial_lunch + partial_dinner == computed_total
         sum_partials = float(summary["partial_lunch"]) + float(summary["partial_dinner"])
         if not near(sum_partials, summary["computed_total"]):
             fatal(f"partial_lunch+partial_dinner ({summary['partial_lunch']}+{summary['partial_dinner']}={sum_partials}) "
@@ -271,18 +271,18 @@ def main():
               f"partial_dinner={summary['partial_dinner']} · "
               f"computed={summary['computed_total']} · status={summary['status']}")
 
-        # 11) PATCH fiscale 1.176,00 → match (delta_fiscal=0)
-        step(11, "PATCH fiscal_total = 1.176,00 → delta_fiscal = 0")
+        # 11) PATCH fiscale 1.443,30 → match (delta_fiscal=0)
+        step(11, "PATCH fiscal_total = 1.443,30 → delta_fiscal = 0")
         s, summary = http_call("PATCH", f"{base}/daily-summary/{today}",
-                                body={"fiscal_total": "1176.00"}, token=token)
+                                body={"fiscal_total": "1443.30"}, token=token)
         if not near(summary["delta_fiscal"], 0.00):
             fatal(f"delta_fiscal atteso 0,00, ottenuto {summary['delta_fiscal']}")
         print(f"  ✓ delta_fiscal = {summary['delta_fiscal']}")
 
-        # 12) PATCH ipratico 1.173,50 → delta = −2,50
-        step(12, "PATCH ipratico_total = 1.173,50 → delta_ipratico = −2,50, status=closed")
+        # 12) PATCH ipratico 1.440,80 → delta = −2,50, status=closed
+        step(12, "PATCH ipratico_total = 1.440,80 → delta_ipratico = −2,50, status=closed")
         s, summary = http_call("PATCH", f"{base}/daily-summary/{today}",
-                                body={"ipratico_total": "1173.50"}, token=token)
+                                body={"ipratico_total": "1440.80"}, token=token)
         if not near(summary["delta_ipratico"], -2.50):
             fatal(f"delta_ipratico atteso -2,50, ottenuto {summary['delta_ipratico']}")
         if not near(summary["delta_fiscal_ipratico"], 2.50):
@@ -290,7 +290,7 @@ def main():
         if summary["status"] != "closed":
             fatal(f"status atteso 'closed', ottenuto {summary['status']}")
         if not summary.get("closed_at"):
-            fatal("closed_at non valorizzato dopo i 3 totali")
+            fatal("closed_at non valorizzato dopo i 4 input (lunch+dinner+fiscal+ipratico)")
         print(f"  ✓ delta_ipratico={summary['delta_ipratico']} · "
               f"delta_fiscal_ipratico={summary['delta_fiscal_ipratico']} · "
               f"closed_at={summary['closed_at']}")
@@ -304,9 +304,9 @@ def main():
         assert_status(s, 200, "re-get summary", summary)
         if not near(summary["cash_float"], 100.00):
             fatal(f"snapshot non funziona: atteso 100, ottenuto {summary['cash_float']}")
-        # Anche i derivati devono restare gli stessi (cash_above = 262.70)
-        if not near(summary["cash_above_float"], 262.70):
-            fatal(f"cash_above invariato atteso, ottenuto {summary['cash_above_float']}")
+        # Anche i derivati devono restare gli stessi
+        if not near(summary["cash_above_float"], 530.00):
+            fatal(f"cash_above invariato atteso 530, ottenuto {summary['cash_above_float']}")
         print(f"  ✓ snapshot ok: cash_float resta {summary['cash_float']} anche con setting={summary['cash_float']}≠120")
 
         print("\n✅ Tutti i check sono passati.")
@@ -340,7 +340,7 @@ def main():
         safe("reset summary totals", lambda: http_call(
             "PATCH", f"{base}/daily-summary/{today}",
             body={"cash_lunch_above_float": None,
-                  "cash_total_end_of_day": None, "fiscal_total": None,
+                  "cash_dinner_above_float": None, "fiscal_total": None,
                   "ipratico_total": None, "notes": None},
             token=token,
         ))

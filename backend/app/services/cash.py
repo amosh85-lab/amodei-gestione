@@ -113,49 +113,45 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
     expenses_total = _q(expenses_lunch + expenses_dinner)
 
     cash_lunch_above = _q(summary_row.cash_lunch_above_float) if summary_row and summary_row.cash_lunch_above_float is not None else None
-    cash_end = _q(summary_row.cash_total_end_of_day) if summary_row and summary_row.cash_total_end_of_day is not None else None
+    cash_dinner_above = _q(summary_row.cash_dinner_above_float) if summary_row and summary_row.cash_dinner_above_float is not None else None
     fiscal = _q(summary_row.fiscal_total) if summary_row and summary_row.fiscal_total is not None else None
     ipratico = _q(summary_row.ipratico_total) if summary_row and summary_row.ipratico_total is not None else None
 
-    # ----- Lunch partial (independent of end-of-day count) -----
+    # Both cash inputs are NETTO (above-float, ≥ 0). The float is never part
+    # of any calculation — it's only an informational snapshot.
     if cash_lunch_above is not None:
-        cash_lunch_above_clamped = max(ZERO, cash_lunch_above)
-        cash_lunch_incassato = _q(cash_lunch_above_clamped + expenses_lunch)
+        cash_lunch_incassato = _q(cash_lunch_above + expenses_lunch)
         partial_lunch = _q(pos_lunch + cash_lunch_incassato)
     else:
-        cash_lunch_above_clamped = None
         cash_lunch_incassato = None
         partial_lunch = None
 
-    # ----- End-of-day totals -----
-    if cash_end is not None:
-        cash_above_float = max(ZERO, _q(cash_end - cash_float))
-        cash_incassato = _q(cash_above_float + expenses_total)
-        computed_total = _q(pos_total + cash_incassato)
-
-        # Dinner partial: derived split — can be negative when the drawer
-        # shrinks during the afternoon (cash expenses > cash dinner sales).
-        # Not clamped to 0: that would break partial_lunch + partial_dinner == computed_total.
-        # If lunch wasn't filled, allocate everything to dinner (best-effort).
-        lunch_share = cash_lunch_above_clamped if cash_lunch_above_clamped is not None else ZERO
-        cash_dinner_above = _q(cash_above_float - lunch_share)
+    if cash_dinner_above is not None:
         cash_dinner_incassato = _q(cash_dinner_above + expenses_dinner)
         partial_dinner = _q(pos_dinner + cash_dinner_incassato)
+    else:
+        cash_dinner_incassato = None
+        partial_dinner = None
+
+    # Aggregate totals: available once BOTH cash inputs are set (otherwise the
+    # day isn't fully counted yet).
+    if cash_lunch_above is not None and cash_dinner_above is not None:
+        cash_above_float = _q(cash_lunch_above + cash_dinner_above)
+        cash_incassato = _q(cash_above_float + expenses_total)
+        computed_total = _q(pos_total + cash_incassato)
     else:
         cash_above_float = None
         cash_incassato = None
         computed_total = None
-        cash_dinner_incassato = None
-        partial_dinner = None
 
     delta_fiscal = _q(fiscal - computed_total) if (fiscal is not None and computed_total is not None) else None
     delta_ipratico = _q(ipratico - computed_total) if (ipratico is not None and computed_total is not None) else None
     delta_fiscal_ipratico = _q(fiscal - ipratico) if (fiscal is not None and ipratico is not None) else None
 
-    filled = sum(1 for v in (cash_end, fiscal, ipratico) if v is not None)
-    if filled == 3:
+    cash_complete = cash_lunch_above is not None and cash_dinner_above is not None
+    if cash_complete and fiscal is not None and ipratico is not None:
         status = "closed"
-    elif filled > 0 or cash_lunch_above is not None:
+    elif cash_lunch_above is not None or cash_dinner_above is not None or fiscal is not None or ipratico is not None:
         status = "partial"
     else:
         status = "open"
@@ -172,11 +168,11 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
         cash_lunch_above_float=cash_lunch_above,
         cash_lunch_incassato=cash_lunch_incassato,
         partial_lunch=partial_lunch,
-        cash_total_end_of_day=cash_end,
-        cash_above_float=cash_above_float,
-        cash_incassato=cash_incassato,
+        cash_dinner_above_float=cash_dinner_above,
         cash_dinner_incassato=cash_dinner_incassato,
         partial_dinner=partial_dinner,
+        cash_above_float=cash_above_float,
+        cash_incassato=cash_incassato,
         computed_total=computed_total,
         fiscal_total=fiscal,
         ipratico_total=ipratico,
