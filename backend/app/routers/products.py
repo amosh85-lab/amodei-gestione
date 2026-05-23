@@ -19,7 +19,7 @@ from app.dependencies.auth import (
 from app.models.inventory import Batch, Product, Supplier
 from app.models.users import User
 from app.schemas.products import (
-    BatchOut,
+    ProductBatchSummary,
     ProductCreate,
     ProductDetail,
     ProductOutWithStock,
@@ -230,9 +230,9 @@ def get_product(
             Batch.load_date.desc(),
         )
     )
-    batches: list[BatchOut] = []
+    batches: list[ProductBatchSummary] = []
     for batch, supplier_name in session.execute(batches_stmt).all():
-        item = BatchOut.model_validate(batch)
+        item = ProductBatchSummary.model_validate(batch)
         item.supplier_name = supplier_name
         batches.append(item)
 

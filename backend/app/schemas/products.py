@@ -61,8 +61,9 @@ class ProductOutWithStock(ProductOut):
     expiring_soon_count: int = 0
 
 
-class BatchOut(BaseModel):
-    """Batch row attached to a product detail response."""
+class ProductBatchSummary(BaseModel):
+    """Batch row attached to a product detail response. Distinct from
+    ``schemas.batches.BatchOut`` (which includes a product summary)."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -81,4 +82,4 @@ class BatchOut(BaseModel):
 class ProductDetail(ProductOutWithStock):
     """Detail view returned by GET /products/{id}."""
 
-    batches: list[BatchOut] = []
+    batches: list[ProductBatchSummary] = []

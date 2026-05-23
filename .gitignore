@@ -45,3 +45,6 @@ dist/
 
 # --- Alembic ---
 backend/alembic/__pycache__/
+
+# --- Uploaded files (user content, persisted via Railway Volume in prod) ---
+backend/uploads/
