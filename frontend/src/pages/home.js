@@ -46,6 +46,9 @@ export function mountHome(container) {
           <button type="button" data-go="/magazzino/carico" class="btn btn--secondary btn--lg full-width">
             ${icon('plus', { size: 20 })}<span>Carica un lotto</span>
           </button>
+          <button type="button" data-go="/chiusura-serale" class="btn btn--secondary btn--lg full-width">
+            ${icon('clock', { size: 20 })}<span>Chiusura serale</span>
+          </button>
           ${isAdminOrManager ? `
             <button type="button" data-go="/fornitori" class="btn btn--ghost btn--lg full-width">
               ${icon('phone', { size: 20 })}<span>Fornitori</span>

@@ -15,6 +15,7 @@ import { mountInventoryList } from '../pages/inventory/list.js';
 import { mountInventoryDetail } from '../pages/inventory/detail.js';
 import { mountInventoryLoad } from '../pages/inventory/load.js';
 import { mountInventorySuppliers } from '../pages/inventory/suppliers.js';
+import { mountInventoryClose } from '../pages/inventory/close.js';
 import { mountMenuList } from '../pages/menu/list.js';
 import { mountCombinedEdit } from '../pages/menu/combined-edit.js';
 
@@ -44,6 +45,7 @@ route('/', mountHome, { requires: 'auth' });
 route('/magazzino', mountInventoryList, { requires: 'auth' });
 route('/magazzino/carico', mountInventoryLoad, { requires: 'auth' });
 route('/magazzino/:id', mountInventoryDetail, { requires: 'auth' });
+route('/chiusura-serale', mountInventoryClose, { requires: 'auth' });
 route('/fornitori', mountInventorySuppliers, { requires: ['admin', 'manager'] });
 route('/menu', mountMenuList, { requires: 'auth' });
 route('/menu/combined/:id', mountCombinedEdit, { requires: ['admin', 'manager'] });
