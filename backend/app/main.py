@@ -14,11 +14,16 @@ from app.routers import (
     alerts as alerts_router,
     auth as auth_router,
     batches as batches_router,
+    daily_summary as daily_summary_router,
     evening_close as evening_close_router,
+    expense_categories as expense_categories_router,
+    expenses as expenses_router,
     menu as menu_router,
     movements as movements_router,
     orders as orders_router,
+    pos_sessions as pos_sessions_router,
     products as products_router,
+    settings as settings_router,
     staff_meals as staff_meals_router,
     suppliers as suppliers_router,
     users as users_router,
@@ -72,6 +77,11 @@ app.include_router(users_router.router)
 app.include_router(staff_meals_router.router)
 app.include_router(alerts_router.router)
 app.include_router(orders_router.router)
+app.include_router(settings_router.router)
+app.include_router(expense_categories_router.router)
+app.include_router(pos_sessions_router.router)
+app.include_router(expenses_router.router)
+app.include_router(daily_summary_router.router)
 
 # Persistent uploads (mounted on Railway as a Volume at /app/uploads). The
 # directory is created on startup so the StaticFiles mount doesn't fail on
