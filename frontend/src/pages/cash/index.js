@@ -118,6 +118,19 @@ export async function mountCashPage(container, _params, query) {
     const label = service === 'lunch' ? 'Pranzo' : 'Cena';
     const expensesForService = state.expenses.filter((e) => e.service === service);
     const expensesTotal = expensesForService.reduce((s, e) => s + Number(e.amount), 0);
+    const s = state.summary || {};
+
+    // Cash input + partial config per service
+    const isLunch = service === 'lunch';
+    const cashField     = isLunch ? 'cash_lunch_above_float' : 'cash_total_end_of_day';
+    const cashLabel     = isLunch ? 'Cash extra fondo a fine pranzo' : 'Cash totale fine giornata';
+    const cashSub       = isLunch
+      ? 'Tutto il contante presente in cassa MENO il fondo, a fine servizio pranzo.'
+      : 'TUTTO il contante presente in cassa a fine serata (inclusivo del fondo).';
+    const cashValue     = s[cashField];
+    const partialField  = isLunch ? 'partial_lunch' : 'partial_dinner';
+    const partialValue  = s[partialField];
+    const cashIncassato = isLunch ? s.cash_lunch_incassato : s.cash_dinner_incassato;
 
     return `
       <!-- POS card -->
@@ -157,6 +170,29 @@ export async function mountCashPage(container, _params, query) {
           ${icon('plus', { size: 18 })}<span>Aggiungi spesa</span>
         </button>
       </div>
+
+      <!-- Cash input card -->
+      <div class="card stack-12" style="margin-top: var(--space-16);">
+        <p class="card__meta" style="margin:0;">${escapeHtml(cashLabel)}</p>
+        <p class="muted text-xs" style="margin:0;">${escapeHtml(cashSub)}</p>
+        <button type="button" data-summary-field="${cashField}"
+                style="width: 100%; padding: var(--space-16); border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--cream-soft); cursor: pointer; text-align: left; font-family: var(--font-display); font-size: 2rem; color: var(--ink);">
+          ${cashValue != null ? `€ ${formatMoney(cashValue)}` : '<span style="opacity: 0.55; font-style: italic; font-size: 1.2rem;">tap per inserire</span>'}
+        </button>
+      </div>
+
+      <!-- Partial summary (only if cash is set) -->
+      ${partialValue != null ? `
+        <div class="card card--inset" style="margin-top: var(--space-16); background: var(--cream-soft); border: 2px solid var(--terracotta);">
+          <p class="muted text-xs uppercase" style="margin:0; letter-spacing: var(--letter-spacing-wide);">Parziale ${escapeHtml(label.toLowerCase())}</p>
+          <p class="font-display" style="margin: var(--space-8) 0 0 0; font-size: 2.5rem; color: var(--terracotta); line-height: 1;">€ ${formatMoney(partialValue)}</p>
+          <p class="muted text-xs" style="margin: var(--space-8) 0 0 0;">
+            POS € ${formatMoney(pos ? pos.closing_amount : 0)}
+            + cash incassato € ${formatMoney(cashIncassato || 0)}
+            <em>(spese ${escapeHtml(label.toLowerCase())} reincorporate)</em>
+          </p>
+        </div>
+      ` : ''}
     `;
   }
 
@@ -199,6 +235,13 @@ export async function mountCashPage(container, _params, query) {
         </div>`
       : '';
 
+    const lunchHint = s.partial_lunch == null
+      ? '<span style="opacity: 0.6; font-style: italic;">non ancora compilato</span>'
+      : `€ ${formatMoney(s.partial_lunch)}`;
+    const dinnerHint = s.partial_dinner == null
+      ? '<span style="opacity: 0.6; font-style: italic;">non ancora compilato</span>'
+      : `€ ${formatMoney(s.partial_dinner)}`;
+
     return `
       ${closedBanner}
       ${cashWarning}
@@ -208,12 +251,14 @@ export async function mountCashPage(container, _params, query) {
         <p style="margin:0; font-family: var(--font-body); font-size: var(--text-xs); opacity: 0.7; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); color: inherit;">Totale calcolato</p>
         <p style="margin: var(--space-8) 0 0 0; font-family: var(--font-display); font-size: 3.5rem; font-weight: 600; line-height: 1; color: inherit;">${s.computed_total != null ? `€ ${formatMoney(s.computed_total)}` : '€ —'}</p>
 
+        <!-- Read-only breakdown by service -->
         <div style="margin-top: var(--space-20); padding-top: var(--space-20); border-top: 1px solid rgba(255,255,255,0.15);">
           ${darkRow('Fondo cassa', `€ ${formatMoney(s.cash_float)}`, 'snapshot della giornata')}
-          ${darkInputRow('Cash a fine serata', s.cash_total_end_of_day, 'cash_total_end_of_day', 'cash-end')}
+          ${darkRow('Parziale pranzo', lunchHint, 'inserito nel tab Pranzo')}
+          ${darkRow('Parziale cena', dinnerHint, 'inserito nel tab Cena (cash fine serata)')}
           ${s.cash_incassato != null ? `
             <div style="display: flex; justify-content: space-between; padding: var(--space-8) 0; opacity: 0.85; color: inherit;">
-              <span style="font-style: italic; color: inherit;">→ Cash incassato (calcolato)</span>
+              <span style="font-style: italic; color: inherit;">→ Cash incassato (totale)</span>
               <span style="font-style: italic; font-family: var(--font-display); color: inherit;">€ ${formatMoney(s.cash_incassato)}</span>
             </div>` : ''}
         </div>
@@ -227,12 +272,12 @@ export async function mountCashPage(container, _params, query) {
   }
 
   function darkRow(label, value, sub = null) {
-    return `<div style="display: flex; justify-content: space-between; padding: var(--space-8) 0; color: inherit;">
-      <div>
+    return `<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-12); padding: var(--space-8) 0; color: inherit;">
+      <div style="min-width: 0; flex: 1 1 auto;">
         <span style="color: inherit;">${escapeHtml(label)}</span>
         ${sub ? `<p class="text-xs" style="margin: 2px 0 0 0; opacity: 0.6; color: inherit;">${escapeHtml(sub)}</p>` : ''}
       </div>
-      <span style="font-family: var(--font-display); color: inherit;">${value}</span>
+      <span style="font-family: var(--font-display); color: inherit; white-space: nowrap; flex-shrink: 0;">${value}</span>
     </div>`;
   }
 
@@ -343,11 +388,13 @@ export async function mountCashPage(container, _params, query) {
       });
     });
 
-    // Summary inputs (Totale tab) — open a numpad with the right title
+    // Summary inputs — open a numpad with the right title.
+    // Buttons live in both the per-service tabs and the Totale tab.
     const SUMMARY_LABELS = {
-      cash_total_end_of_day: 'Cash a fine serata',
-      fiscal_total:          'Totale fiscale',
-      ipratico_total:        'Totale Ipratico',
+      cash_lunch_above_float: 'Cash extra fondo a fine pranzo',
+      cash_total_end_of_day:  'Cash totale fine giornata',
+      fiscal_total:           'Totale fiscale',
+      ipratico_total:         'Totale Ipratico',
     };
     container.querySelectorAll('[data-summary-field]').forEach((btn) => {
       btn.addEventListener('click', () => {

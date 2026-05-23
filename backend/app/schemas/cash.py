@@ -104,6 +104,7 @@ class ExpenseOut(BaseModel):
 class DailySummaryUpdate(BaseModel):
     """All fields optional → PATCH semantics. notes is also patchable."""
 
+    cash_lunch_above_float: Decimal | None = Field(default=None, ge=0)
     cash_total_end_of_day: Decimal | None = Field(default=None, ge=0)
     fiscal_total: Decimal | None = Field(default=None, ge=0)
     ipratico_total: Decimal | None = Field(default=None, ge=0)
@@ -130,9 +131,19 @@ class DailySummaryOut(BaseModel):
     expenses_dinner: Decimal = Decimal("0")
     expenses_total: Decimal = Decimal("0")
 
+    # Lunch close (input) + derived partial
+    cash_lunch_above_float: Decimal | None = None
+    cash_lunch_incassato: Decimal | None = None    # above_float_lunch + expenses_lunch
+    partial_lunch: Decimal | None = None           # pos_lunch + cash_lunch_incassato
+
+    # End-of-day inputs + derived totals
     cash_total_end_of_day: Decimal | None = None
     cash_above_float: Decimal | None = None     # max(0, end - float)
     cash_incassato: Decimal | None = None       # above_float + expenses_total
+
+    # Dinner partial (derived once cash_total_end_of_day is set)
+    cash_dinner_incassato: Decimal | None = None
+    partial_dinner: Decimal | None = None
 
     computed_total: Decimal | None = None       # pos_total + cash_incassato
 

@@ -96,10 +96,13 @@ def update_summary(
     row = _ensure_row(session, day)
     changes = payload.model_dump(exclude_unset=True)
 
-    # First time cash_total_end_of_day is set → freeze the cash_float snapshot
-    if "cash_total_end_of_day" in changes and changes["cash_total_end_of_day"] is not None:
-        if row.cash_total_end_of_day is None:
-            row.cash_float_snapshot = get_cash_float(session)
+    # Snapshot the cash_float setting the first time ANY cash count is
+    # provided (lunch above-float OR end-of-day) — whichever comes first.
+    introducing_lunch = changes.get("cash_lunch_above_float") is not None and row.cash_lunch_above_float is None
+    introducing_end   = changes.get("cash_total_end_of_day")  is not None and row.cash_total_end_of_day  is None
+    no_cash_yet = row.cash_lunch_above_float is None and row.cash_total_end_of_day is None
+    if (introducing_lunch or introducing_end) and no_cash_yet:
+        row.cash_float_snapshot = get_cash_float(session)
 
     for k, v in changes.items():
         setattr(row, k, v)
