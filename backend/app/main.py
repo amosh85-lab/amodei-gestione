@@ -17,6 +17,7 @@ from app.routers import (
     evening_close as evening_close_router,
     menu as menu_router,
     movements as movements_router,
+    orders as orders_router,
     products as products_router,
     staff_meals as staff_meals_router,
     suppliers as suppliers_router,
@@ -70,6 +71,7 @@ app.include_router(evening_close_router.router)
 app.include_router(users_router.router)
 app.include_router(staff_meals_router.router)
 app.include_router(alerts_router.router)
+app.include_router(orders_router.router)
 
 # Persistent uploads (mounted on Railway as a Volume at /app/uploads). The
 # directory is created on startup so the StaticFiles mount doesn't fail on
