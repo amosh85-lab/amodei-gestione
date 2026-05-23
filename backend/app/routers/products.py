@@ -50,7 +50,7 @@ def _is_code_uniqueness_violation(exc: IntegrityError) -> bool:
 
 def _compute_aggregates(
     session: Session, product_id: int, today: date
-) -> tuple[Decimal, int]:
+) -> tuple[Decimal, int, date | None]:
     threshold = today + timedelta(days=EXPIRING_SOON_DAYS)
     qty_total = session.scalar(
         select(func.coalesce(func.sum(Batch.current_qty), 0))
@@ -65,7 +65,15 @@ def _compute_aggregates(
             Batch.expiry_date <= threshold,
         )
     ) or 0
-    return Decimal(qty_total), int(exp_count)
+    next_expiry = session.scalar(
+        select(func.min(Batch.expiry_date))
+        .where(
+            Batch.product_id == product_id,
+            Batch.current_qty > 0,
+            Batch.expiry_date.isnot(None),
+        )
+    )
+    return Decimal(qty_total), int(exp_count), next_expiry
 
 
 # -------------------------------------------------------------------
@@ -128,14 +136,30 @@ def list_products(
         .subquery()
     )
 
+    # Subquery: earliest expiry across in-stock batches per product
+    next_exp_subq = (
+        select(
+            Batch.product_id.label("product_id"),
+            func.min(Batch.expiry_date).label("next_expiry_date"),
+        )
+        .where(
+            Batch.current_qty > 0,
+            Batch.expiry_date.isnot(None),
+        )
+        .group_by(Batch.product_id)
+        .subquery()
+    )
+
     stmt = (
         select(
             Product,
             func.coalesce(qty_subq.c.qty_total, 0).label("qty_total"),
             func.coalesce(exp_subq.c.expiring_count, 0).label("expiring_count"),
+            next_exp_subq.c.next_expiry_date.label("next_expiry_date"),
         )
         .outerjoin(qty_subq, qty_subq.c.product_id == Product.id)
         .outerjoin(exp_subq, exp_subq.c.product_id == Product.id)
+        .outerjoin(next_exp_subq, next_exp_subq.c.product_id == Product.id)
     )
 
     if active is not None:
@@ -166,10 +190,11 @@ def list_products(
     stmt = stmt.order_by(func.lower(Product.name).asc())
 
     out: list[ProductOutWithStock] = []
-    for product, qty_total, exp_count in session.execute(stmt).all():
+    for product, qty_total, exp_count, next_expiry in session.execute(stmt).all():
         item = ProductOutWithStock.model_validate(product)
         item.qty_total = Decimal(qty_total or 0)
         item.expiring_soon_count = int(exp_count or 0)
+        item.next_expiry_date = next_expiry
         out.append(item)
     return out
 
@@ -219,7 +244,7 @@ def get_product(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Prodotto non trovato")
 
     today = date.today()
-    qty_total, exp_count = _compute_aggregates(session, product_id, today)
+    qty_total, exp_count, next_expiry = _compute_aggregates(session, product_id, today)
 
     batches_stmt = (
         select(Batch, Supplier.name)
@@ -239,6 +264,7 @@ def get_product(
     detail = ProductDetail.model_validate(product)
     detail.qty_total = qty_total
     detail.expiring_soon_count = exp_count
+    detail.next_expiry_date = next_expiry
     detail.batches = batches
     return detail
 
@@ -277,10 +303,11 @@ def update_product(
         product.id, list(changes), user.id,
     )
 
-    qty_total, exp_count = _compute_aggregates(session, product_id, date.today())
+    qty_total, exp_count, next_expiry = _compute_aggregates(session, product_id, date.today())
     out = ProductOutWithStock.model_validate(product)
     out.qty_total = qty_total
     out.expiring_soon_count = exp_count
+    out.next_expiry_date = next_expiry
     return out
 
 

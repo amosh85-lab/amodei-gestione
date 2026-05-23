@@ -37,24 +37,20 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="header header--brand">
+    <!-- Header is populated dynamically by app-shell.js::setHeader() -->
+    <header class="header header--brand" id="app-header">
       <h1 class="header__title">Amodei</h1>
     </header>
 
-    <main class="app-content app-content--no-nav">
-      <section class="container container--narrow" style="padding-top: var(--space-48); padding-bottom: var(--space-48);">
-        <div class="card card--elevated center-text stack-16">
-          <p class="muted uppercase text-xs fw-600">Gestionale Wine Bar</p>
-          <h2 class="font-display text-3xl" style="margin:0;">Sistema in costruzione</h2>
-          <p class="muted">Stiamo cucendo la PWA pezzo a pezzo. Per ora puoi vedere il design system completo o controllare lo stato del backend.</p>
-          <span id="status" class="pill" style="align-self: center;"></span>
-          <p id="status-detail" class="text-xs softer font-mono" style="word-break: break-all;"></p>
-          <div class="row" style="justify-content:center; margin-top: var(--space-8);">
-            <a class="btn btn--primary" href="./src/style-guide.html">Vedi style guide</a>
-          </div>
-        </div>
-      </section>
+    <!-- Single mount point for every routed page -->
+    <main class="app-content" id="app">
+      <div class="center" style="min-height: 50vh;">
+        <p class="muted">Caricamento…</p>
+      </div>
     </main>
+
+    <!-- Bottom nav populated by app-shell.js::renderNav() -->
+    <nav class="nav-bar" id="app-nav"></nav>
   </div>
 
   <script type="module" src="./src/js/app.js"></script>

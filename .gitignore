@@ -48,3 +48,6 @@ backend/alembic/__pycache__/
 
 # --- Uploaded files (user content, persisted via Railway Volume in prod) ---
 backend/uploads/
+
+# --- Test-only bootstrap helpers (never linked from the app) ---
+frontend/test-bootstrap.html

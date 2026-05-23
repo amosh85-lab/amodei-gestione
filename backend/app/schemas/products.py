@@ -59,6 +59,9 @@ class ProductOutWithStock(ProductOut):
 
     qty_total: Decimal = Decimal("0")
     expiring_soon_count: int = 0
+    # Earliest expiry across in-stock batches. Lets the list page render
+    # "Scade in Xg" badges without per-row N+1 detail fetches.
+    next_expiry_date: date | None = None
 
 
 class ProductBatchSummary(BaseModel):
