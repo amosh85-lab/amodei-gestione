@@ -113,6 +113,9 @@ def main() -> None:
         ("menu-combinati", "/menu?tab=combinati",     True),
         ("menu-new",       "/menu/combined/new",      True),
         ("chiusura",       "/chiusura-serale",        True),
+        ("pasti-list",     "/pasti-staff",            True),
+        ("pasti-new",      "/pasti-staff/nuovo",      True),
+        ("pasti-stats",    "/pasti-staff/statistiche", True),
     ]
     if pid is not None:
         pages.insert(4, ("detail", f"/magazzino/{pid}", True))

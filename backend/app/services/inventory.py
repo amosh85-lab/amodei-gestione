@@ -13,7 +13,7 @@ from typing import Iterable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.inventory import Batch, Movement, MovementType
+from app.models.inventory import Batch, Movement, MovementSource, MovementType
 
 logger = logging.getLogger("amodei.inventory")
 
@@ -44,9 +44,15 @@ def apply_movement(
     mtype: MovementType,
     reason: str | None,
     user_id: int,
+    source_type: MovementSource | None = None,
+    source_id: int | None = None,
 ) -> list[Movement]:
     """Consume ``qty_needed`` of ``product_id`` via FIFO, recording one
     :class:`Movement` per batch touched and decrementing ``current_qty``.
+
+    If ``source_type``/``source_id`` are provided they're stamped on every
+    movement created — used by feature routers (staff_meals, evening_close,
+    …) to find their own movements back later for cancellation/reporting.
 
     Raises :class:`InsufficientStockError` (a ValueError subclass) if total
     in-stock qty is less than ``qty_needed`` — the caller should map this
@@ -72,6 +78,8 @@ def apply_movement(
             qty=take,
             reason=reason,
             user_id=user_id,
+            source_type=source_type,
+            source_id=source_id,
         )
         session.add(movement)
         batch.current_qty = batch.current_qty - take

@@ -22,6 +22,7 @@ from app.models.inventory import (
     COMMON_UNITS,
     Batch,
     Movement,
+    MovementSource,
     MovementType,
     Product,
     Supplier,
@@ -62,6 +63,7 @@ __all__ = [
     "Product",
     "Batch",
     "Movement",
+    "MovementSource",
     "MovementType",
     "VatRate",
     # menu

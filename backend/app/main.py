@@ -17,7 +17,9 @@ from app.routers import (
     menu as menu_router,
     movements as movements_router,
     products as products_router,
+    staff_meals as staff_meals_router,
     suppliers as suppliers_router,
+    users as users_router,
 )
 from app.services.storage import UPLOAD_ROOT, ensure_upload_root
 
@@ -64,6 +66,8 @@ app.include_router(batches_router.router)
 app.include_router(movements_router.router)
 app.include_router(menu_router.router)
 app.include_router(evening_close_router.router)
+app.include_router(users_router.router)
+app.include_router(staff_meals_router.router)
 
 # Persistent uploads (mounted on Railway as a Volume at /app/uploads). The
 # directory is created on startup so the StaticFiles mount doesn't fail on

@@ -64,6 +64,24 @@ class MovementType(str, enum.Enum):
     staff_meal = "staff_meal"
 
 
+class MovementSource(str, enum.Enum):
+    """High-level workflow that produced a Movement.
+
+    Different from :class:`MovementType`: ``type`` describes the accounting
+    effect (sale / adjustment / etc.), ``source`` records *which feature*
+    emitted the movement. ``source_id`` then references the originating row
+    (e.g. ``source=staff_meal, source_id=42`` ⇒ StaffMeal #42).
+
+    Populated since prompt 9; older rows have ``source=None``.
+    """
+
+    load = "load"
+    sale = "sale"
+    waste = "waste"
+    staff_meal = "staff_meal"
+    adjustment = "adjustment"
+
+
 class Supplier(AmodeiBase, TimestampMixin):
     __tablename__ = "suppliers"
 
@@ -181,9 +199,20 @@ class Movement(AmodeiBase, TimestampMixin):
         index=True,
     )
 
+    # Polymorphic link back to the workflow that created this movement.
+    # source_id intentionally has no FK constraint (it points at different
+    # tables depending on source_type). Both are nullable for backwards
+    # compatibility with movements created before this column existed.
+    source_type: Mapped[MovementSource | None] = mapped_column(
+        pg_enum(MovementSource, "movement_source"),
+        nullable=True,
+    )
+    source_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
     batch: Mapped[Batch] = relationship("Batch")
     product: Mapped[Product] = relationship("Product")
 
     __table_args__ = (
         Index("ix_movements_product_created", "product_id", "created_at"),
+        Index("ix_movements_source", "source_type", "source_id"),
     )

@@ -18,6 +18,10 @@ import { mountInventorySuppliers } from '../pages/inventory/suppliers.js';
 import { mountInventoryClose } from '../pages/inventory/close.js';
 import { mountMenuList } from '../pages/menu/list.js';
 import { mountCombinedEdit } from '../pages/menu/combined-edit.js';
+import { mountStaffMealsList } from '../pages/staff-meals/list.js';
+import { mountStaffMealsNew } from '../pages/staff-meals/new.js';
+import { mountStaffMealsDetail } from '../pages/staff-meals/detail.js';
+import { mountStaffMealsStats } from '../pages/staff-meals/stats.js';
 
 // ---------- Dev/test helper: ?token=…&user=… on localhost ----------
 // Lets tools/screenshot_pages.py (or DevTools) seed an authenticated
@@ -49,6 +53,10 @@ route('/chiusura-serale', mountInventoryClose, { requires: 'auth' });
 route('/fornitori', mountInventorySuppliers, { requires: ['admin', 'manager'] });
 route('/menu', mountMenuList, { requires: 'auth' });
 route('/menu/combined/:id', mountCombinedEdit, { requires: ['admin', 'manager'] });
+route('/pasti-staff', mountStaffMealsList, { requires: 'auth' });
+route('/pasti-staff/nuovo', mountStaffMealsNew, { requires: 'auth' });
+route('/pasti-staff/statistiche', mountStaffMealsStats, { requires: ['admin', 'manager'] });
+route('/pasti-staff/:id', mountStaffMealsDetail, { requires: 'auth' });
 
 // ---------- Chrome toggles per route ----------
 

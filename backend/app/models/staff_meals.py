@@ -1,10 +1,10 @@
 """Staff meals — track what the team eats during shifts."""
 from __future__ import annotations
 
-from datetime import date as date_type
+from datetime import date as date_type, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Date, ForeignKey, Index, Numeric, Text
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, Numeric, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import AmodeiBase, SERVICE_KIND_ENUM, ServiceKind, TimestampMixin
@@ -20,6 +20,18 @@ class StaffMeal(AmodeiBase, TimestampMixin):
         BigInteger,
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
+        index=True,
+    )
+
+    # Cancellation (admin-only): keeps the audit trail intact while marking
+    # the meal as voided. Counter-movements are emitted to restore stock.
+    cancelled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cancelled_by_user_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
         index=True,
     )
 
