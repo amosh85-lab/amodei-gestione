@@ -309,6 +309,38 @@ def main():
             fatal(f"cash_above invariato atteso 530, ottenuto {summary['cash_above_float']}")
         print(f"  ✓ snapshot ok: cash_float resta {summary['cash_float']} anche con setting={summary['cash_float']}≠120")
 
+        # 14) Export CSV: GET /cash-export/csv?from=today&to=today → riga di oggi
+        step(14, "GET /cash-export/csv per oggi → CSV con header + riga dati")
+        import urllib.request
+        csv_url = f"{base}/cash-export/csv?from={today}&to={today}"
+        req = urllib.request.Request(csv_url, headers={"Authorization": f"Bearer {token}"})
+        open_kwargs = {"timeout": 10}
+        if csv_url.startswith("https://") and SSL_CTX is not None:
+            open_kwargs["context"] = SSL_CTX
+        with urllib.request.urlopen(req, **open_kwargs) as resp:
+            ct = resp.headers.get("Content-Type", "")
+            body = resp.read().decode("utf-8")
+        if not ct.startswith("text/csv"):
+            fatal(f"Content-Type atteso text/csv, ottenuto {ct!r}")
+        lines = [ln for ln in body.splitlines() if ln.strip()]
+        if len(lines) < 2:
+            fatal(f"CSV deve avere header + ≥1 riga, righe={len(lines)} body={body!r}")
+        header = lines[0].split(";")
+        expected_headers = ["data", "pos_pranzo", "pos_cena", "cash_pranzo",
+                            "cash_totale", "spese_totali", "calcolato",
+                            "fiscale", "ipratico", "scostamento_fiscale",
+                            "scostamento_ipratico", "status"]
+        if header != expected_headers:
+            fatal(f"Header CSV non corrispondente.\n  atteso: {expected_headers}\n  ottenuto: {header}")
+        row = lines[1].split(";")
+        if row[0] != today:
+            fatal(f"Prima riga dati attesa per {today}, trovato {row[0]!r}")
+        if row[6] != "1443,30":
+            fatal(f"calcolato atteso '1443,30', ottenuto {row[6]!r}")
+        if row[11] != "closed":
+            fatal(f"status atteso 'closed', ottenuto {row[11]!r}")
+        print(f"  ✓ CSV OK: {len(lines)-1} righe, calcolato={row[6]}, status={row[11]}")
+
         print("\n✅ Tutti i check sono passati.")
 
     finally:

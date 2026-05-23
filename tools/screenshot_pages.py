@@ -123,6 +123,8 @@ def main() -> None:
         ("cassa-lunch",     "/cassa?tab=lunch",        True),
         ("cassa-dinner",    "/cassa?tab=dinner",       True),
         ("cassa-total",     "/cassa?tab=total",        True),
+        ("cassa-storico",   "/cassa/storico",          True),
+        ("cassa-stats",     "/cassa/statistiche",      True),
     ]
     if pid is not None:
         pages.insert(4, ("detail", f"/magazzino/{pid}", True))

@@ -14,6 +14,7 @@ from app.routers import (
     alerts as alerts_router,
     auth as auth_router,
     batches as batches_router,
+    cash_export as cash_export_router,
     daily_summary as daily_summary_router,
     evening_close as evening_close_router,
     expense_categories as expense_categories_router,
@@ -82,6 +83,7 @@ app.include_router(expense_categories_router.router)
 app.include_router(pos_sessions_router.router)
 app.include_router(expenses_router.router)
 app.include_router(daily_summary_router.router)
+app.include_router(cash_export_router.router)
 
 # Persistent uploads (mounted on Railway as a Volume at /app/uploads). The
 # directory is created on startup so the StaticFiles mount doesn't fail on

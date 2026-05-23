@@ -24,6 +24,10 @@ export async function mountCashPage(container, _params, query) {
     title: 'Cassa',
     brand: true,
     backHref: '/',
+    actions: [
+      { label: 'Storico', iconName: 'calendar', onClick: () => navigate('/cassa/storico') },
+      { label: 'Statistiche', iconName: 'bar-chart', onClick: () => navigate('/cassa/statistiche') },
+    ],
   });
 
   container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">${skeletonList(3)}</div>`;
@@ -71,8 +75,18 @@ export async function mountCashPage(container, _params, query) {
 
   function render() {
     const dateLabel = humanDate(state.date);
+    const isToday = state.date === todayIso();
+    const pastBanner = isToday ? '' : `
+      <div class="alert alert--info" style="margin-bottom: var(--space-12);">
+        <span class="alert__icon">${icon('calendar', { size: 22 })}</span>
+        <div class="alert__body" style="display: flex; justify-content: space-between; align-items: center; gap: var(--space-8); flex-wrap: wrap;">
+          <span class="alert__text">Stai visualizzando un giorno passato.</span>
+          <a href="#/cassa" class="btn btn--ghost btn--sm" data-back-today>← Torna a oggi</a>
+        </div>
+      </div>`;
     container.innerHTML = `
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 96px;">
+        ${pastBanner}
         <p class="muted text-sm" style="margin: 0 0 var(--space-12) 0; text-transform: capitalize;">${escapeHtml(dateLabel)}</p>
 
         ${renderTabs()}
