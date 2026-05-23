@@ -55,7 +55,7 @@ def http_call(
     body: bytes | dict | None = None,
     content_type: str | None = None,
     token: str | None = None,
-    timeout: float = 15.0,
+    timeout: float = 30.0,
     expect_json: bool = True,
 ) -> tuple[int, Any, dict[str, str]]:
     headers: dict[str, str] = {"Accept": "*/*" if not expect_json else "application/json"}
@@ -342,27 +342,52 @@ def main() -> None:
         print("\n✅ Tutti i check sono passati.")
 
     finally:
+        # Cleanup è best-effort: ogni call wrappato per non far esplodere il
+        # processo se Railway è momentaneamente lento. Se qualcosa fallisce,
+        # gli orfani restano taggati col tag così li trovi/elimini dopo.
         print("\n— Cleanup —")
-        # Per cancellare il product dobbiamo prima portare tutti i lotti a 0
-        # (DELETE prodotto è bloccato se ci sono lotti aperti).
+
+        def safe(label: str, fn):
+            try:
+                fn()
+            except Exception as exc:
+                print(f"  ⚠ {label}: {exc}")
+
         if product_id is not None:
-            status, batches, _ = http_call(
-                "GET", f"{base}/batches?product_id={product_id}&include_empty=true",
-                token=token,
+            safe(
+                "GET batches per cleanup",
+                lambda: _cleanup_batches(base, token, product_id, tag),
             )
-            if isinstance(batches, list):
-                for b in batches:
-                    if float(b["current_qty"]) > 0:
-                        http_call(
-                            "POST", f"{base}/movements/rettifica",
-                            body={"batch_id": b["id"], "new_qty": "0",
-                                  "reason": f"cleanup test {tag}"},
-                            token=token,
-                        )
-            http_call("DELETE", f"{base}/products/{product_id}", token=token)
+            safe(
+                f"DELETE product {product_id}",
+                lambda: http_call("DELETE", f"{base}/products/{product_id}", token=token, timeout=45),
+            )
         if supplier_id is not None:
-            http_call("DELETE", f"{base}/suppliers/{supplier_id}", token=token)
-        print(f"  Lotti azzerati, product e supplier (tag {tag}) soft-deletati.")
+            safe(
+                f"DELETE supplier {supplier_id}",
+                lambda: http_call("DELETE", f"{base}/suppliers/{supplier_id}", token=token, timeout=45),
+            )
+        print(f"  Cleanup completato (tag {tag}).")
+
+
+def _cleanup_batches(base: str, token: str, product_id: int, tag: str) -> None:
+    status, batches, _ = http_call(
+        "GET", f"{base}/batches?product_id={product_id}&include_empty=true",
+        token=token, timeout=45,
+    )
+    if not isinstance(batches, list):
+        return
+    for b in batches:
+        if float(b["current_qty"]) > 0:
+            try:
+                http_call(
+                    "POST", f"{base}/movements/rettifica",
+                    body={"batch_id": b["id"], "new_qty": "0",
+                          "reason": f"cleanup test {tag}"},
+                    token=token, timeout=45,
+                )
+            except Exception as exc:
+                print(f"  ⚠ rettifica batch {b['id']}: {exc}")
 
 
 if __name__ == "__main__":
