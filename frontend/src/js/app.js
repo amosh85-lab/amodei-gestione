@@ -22,6 +22,9 @@ import { mountStaffMealsList } from '../pages/staff-meals/list.js';
 import { mountStaffMealsNew } from '../pages/staff-meals/new.js';
 import { mountStaffMealsDetail } from '../pages/staff-meals/detail.js';
 import { mountStaffMealsStats } from '../pages/staff-meals/stats.js';
+import { mountQuickSignal } from '../pages/alerts/quick-signal.js';
+import { mountReordersList } from '../pages/reorders/list.js';
+import { mountReorderEdit } from '../pages/reorders/edit.js';
 
 // ---------- Dev/test helper: ?token=…&user=… on localhost ----------
 // Lets tools/screenshot_pages.py (or DevTools) seed an authenticated
@@ -57,6 +60,10 @@ route('/pasti-staff', mountStaffMealsList, { requires: 'auth' });
 route('/pasti-staff/nuovo', mountStaffMealsNew, { requires: 'auth' });
 route('/pasti-staff/statistiche', mountStaffMealsStats, { requires: ['admin', 'manager'] });
 route('/pasti-staff/:id', mountStaffMealsDetail, { requires: 'auth' });
+route('/segnala', mountQuickSignal, { requires: 'auth' });
+route('/riordini', mountReordersList, { requires: ['admin', 'manager'] });
+route('/riordini/nuovo', mountReorderEdit, { requires: ['admin', 'manager'] });
+route('/riordini/:id', mountReorderEdit, { requires: ['admin', 'manager'] });
 
 // ---------- Chrome toggles per route ----------
 
