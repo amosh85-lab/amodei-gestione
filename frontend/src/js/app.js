@@ -25,6 +25,7 @@ import { mountStaffMealsStats } from '../pages/staff-meals/stats.js';
 import { mountQuickSignal } from '../pages/alerts/quick-signal.js';
 import { mountReordersList } from '../pages/reorders/list.js';
 import { mountReorderEdit } from '../pages/reorders/edit.js';
+import { mountCashPage } from '../pages/cash/index.js';
 
 // ---------- Dev/test helper: ?token=…&user=… on localhost ----------
 // Lets tools/screenshot_pages.py (or DevTools) seed an authenticated
@@ -64,6 +65,7 @@ route('/segnala', mountQuickSignal, { requires: 'auth' });
 route('/riordini', mountReordersList, { requires: ['admin', 'manager'] });
 route('/riordini/nuovo', mountReorderEdit, { requires: ['admin', 'manager'] });
 route('/riordini/:id', mountReorderEdit, { requires: ['admin', 'manager'] });
+route('/cassa', mountCashPage, { requires: ['admin', 'manager'] });
 
 // ---------- Chrome toggles per route ----------
 
