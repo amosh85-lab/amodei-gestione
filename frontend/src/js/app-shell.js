@@ -8,6 +8,7 @@ import { logout } from './auth.js';
 const NAV_TABS = [
   { id: 'home',      label: 'Home',      iconName: 'home',      route: '/' },
   { id: 'cassa',     label: 'Cassa',     iconName: 'cash',      route: '/cassa',     wip: true },
+  { id: 'menu',      label: 'Menu',      iconName: 'edit',      route: '/menu' },
   { id: 'magazzino', label: 'Magazzino', iconName: 'inventory', route: '/magazzino' },
   { id: 'settings',  label: 'Impost.',   iconName: 'settings',  route: '/settings',  wip: true },
 ];

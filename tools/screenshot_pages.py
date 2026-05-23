@@ -104,11 +104,14 @@ def main() -> None:
 
     pages: list[tuple[str, str, bool]] = [
         # (name, hash, requires_auth_seeded)
-        ("login",      "/login",          False),
-        ("home",       "/",               True),
-        ("magazzino",  "/magazzino",      True),
-        ("carico",     "/magazzino/carico", True),
-        ("fornitori",  "/fornitori",      True),
+        ("login",          "/login",                  False),
+        ("home",           "/",                       True),
+        ("magazzino",      "/magazzino",              True),
+        ("carico",         "/magazzino/carico",       True),
+        ("fornitori",      "/fornitori",              True),
+        ("menu-singoli",   "/menu?tab=singoli",       True),
+        ("menu-combinati", "/menu?tab=combinati",     True),
+        ("menu-new",       "/menu/combined/new",      True),
     ]
     if pid is not None:
         pages.insert(4, ("detail", f"/magazzino/{pid}", True))

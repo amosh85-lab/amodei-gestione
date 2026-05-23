@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.routers import (
     auth as auth_router,
     batches as batches_router,
+    menu as menu_router,
     movements as movements_router,
     products as products_router,
     suppliers as suppliers_router,
@@ -60,6 +61,7 @@ app.include_router(suppliers_router.router)
 app.include_router(products_router.router)
 app.include_router(batches_router.router)
 app.include_router(movements_router.router)
+app.include_router(menu_router.router)
 
 # Persistent uploads (mounted on Railway as a Volume at /app/uploads). The
 # directory is created on startup so the StaticFiles mount doesn't fail on
