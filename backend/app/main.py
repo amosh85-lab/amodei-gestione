@@ -9,7 +9,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import auth as auth_router
+from app.routers import (
+    auth as auth_router,
+    products as products_router,
+    suppliers as suppliers_router,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,6 +52,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_router.router)
+app.include_router(suppliers_router.router)
+app.include_router(products_router.router)
 
 
 def _health_payload() -> dict[str, str]:
