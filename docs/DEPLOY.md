@@ -123,17 +123,17 @@ git push -u origin main
 
 ## 4. Deploy frontend su Netlify
 
-**Prima di trascinare**: aggiorna il meta tag in `frontend/public/index.html`:
+**Prima di trascinare**: aggiorna il meta tag in `frontend/index.html`:
 
 ```html
 <meta name="amodei-api-url" content="https://<tuo-backend>.up.railway.app" />
 ```
 
 Poi:
-1. Vai su https://app.netlify.com/drop
-2. Trascina la cartella **`frontend/public/`**
+1. Vai su https://app.netlify.com/drop (o sulla dashboard del sito esistente → tab **Deploys**)
+2. Trascina la cartella **`frontend/`** (intera — non più solo `/public`, perché ora `index.html` sta nella root e i sorgenti CSS/JS in `/src`)
 3. Netlify assegna un URL tipo `https://eloquent-curie-12345.netlify.app`
-4. (Opzionale) **Site configuration → Change site name** → `amodei`
+4. (Opzionale) **Site configuration → Change site name** → `amodei-gestione`
 
 ---
 

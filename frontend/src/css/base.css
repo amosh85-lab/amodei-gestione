@@ -1,0 +1,117 @@
+/* ============================================================
+   Amodei — Base
+   Modern CSS reset + body typography + subtle artisan texture.
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100svh;
+  line-height: var(--line-height-normal);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--ink);
+  background-color: var(--cream-soft);
+
+  /* Subtle organic warmth: two soft radial gradients, like aged paper */
+  background-image:
+    radial-gradient(circle at 18% 22%, rgba(181, 57, 31, 0.035) 0px, transparent 55%),
+    radial-gradient(circle at 82% 78%, rgba(212, 161, 85, 0.028) 0px, transparent 55%);
+  background-attachment: fixed;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+a {
+  color: var(--terracotta);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+a:hover { color: var(--terracotta-dark); }
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-sm);
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--ink);
+}
+h1 { font-size: var(--text-4xl); }
+h2 { font-size: var(--text-3xl); }
+h3 { font-size: var(--text-2xl); }
+h4 { font-size: var(--text-xl); }
+h5 { font-size: var(--text-lg); }
+
+p { color: var(--ink); }
+
+ul, ol { padding: 0; list-style: none; }
+
+hr {
+  border: none;
+  height: 1px;
+  background: var(--border-soft);
+  margin: var(--space-24) 0;
+}
+
+::selection {
+  background: rgba(181, 57, 31, 0.22);
+  color: var(--ink);
+}
+
+/* Accessibility: visible focus for keyboard users on all interactive elements */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-sm);
+}
+
+/* Hide native browser focus when using mouse (focus-visible covers keyboard) */
+:focus:not(:focus-visible) {
+  outline: none;
+}

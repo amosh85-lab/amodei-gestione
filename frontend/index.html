@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#B5391F" />
+  <meta name="color-scheme" content="light" />
+
+  <!-- PWA / iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Amodei" />
+  <meta name="format-detection" content="telephone=no" />
+
+  <!--
+    Backend URL configuration.
+    - Local dev: leave content="" → frontend falls back to http://localhost:8000.
+    - Production: set content to the Railway backend URL.
+  -->
+  <meta name="amodei-api-url" content="https://amodei-gestione-production.up.railway.app" />
+
+  <title>Amodei — Gestionale Wine Bar</title>
+
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./public/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./public/icons/icon-192.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Design system: tokens → base → layout → components -->
+  <link rel="stylesheet" href="./src/css/tokens.css" />
+  <link rel="stylesheet" href="./src/css/base.css" />
+  <link rel="stylesheet" href="./src/css/layout.css" />
+  <link rel="stylesheet" href="./src/css/components.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="header header--brand">
+      <h1 class="header__title">Amodei</h1>
+    </header>
+
+    <main class="app-content app-content--no-nav">
+      <section class="container container--narrow" style="padding-top: var(--space-48); padding-bottom: var(--space-48);">
+        <div class="card card--elevated center-text stack-16">
+          <p class="muted uppercase text-xs fw-600">Gestionale Wine Bar</p>
+          <h2 class="font-display text-3xl" style="margin:0;">Sistema in costruzione</h2>
+          <p class="muted">Stiamo cucendo la PWA pezzo a pezzo. Per ora puoi vedere il design system completo o controllare lo stato del backend.</p>
+          <span id="status" class="pill" style="align-self: center;"></span>
+          <p id="status-detail" class="text-xs softer font-mono" style="word-break: break-all;"></p>
+          <div class="row" style="justify-content:center; margin-top: var(--space-8);">
+            <a class="btn btn--primary" href="./src/style-guide.html">Vedi style guide</a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./src/js/app.js"></script>
+</body>
+</html>

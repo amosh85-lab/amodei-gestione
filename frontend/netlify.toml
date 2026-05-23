@@ -1,10 +1,11 @@
 # Netlify configuration.
+#
 # Drag & drop deploys ignore [build] (they publish the dropped folder as-is),
 # but [[headers]] and [[redirects]] are honored. Keep the build block in place
 # for future Git-based deploys.
 
 [build]
-  publish = "public"
+  publish = "."
 
 [[headers]]
   for = "/*"
