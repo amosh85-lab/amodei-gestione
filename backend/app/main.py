@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.routers import (
+    alerts as alerts_router,
     auth as auth_router,
     batches as batches_router,
     evening_close as evening_close_router,
@@ -68,6 +69,7 @@ app.include_router(menu_router.router)
 app.include_router(evening_close_router.router)
 app.include_router(users_router.router)
 app.include_router(staff_meals_router.router)
+app.include_router(alerts_router.router)
 
 # Persistent uploads (mounted on Railway as a Volume at /app/uploads). The
 # directory is created on startup so the StaticFiles mount doesn't fail on
