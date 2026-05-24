@@ -35,6 +35,11 @@ export async function openAddAdvanceModal({ service, date, onSaved }) {
   let notes = '';
   let photoFile = null;
   let photoPreviewUrl = null;
+  // Reference month default: se day(date) <= 10 → mese precedente, altrimenti corrente.
+  // Logica: i primi 10 giorni del mese le buste del mese scorso non sono
+  // ancora state pagate, quindi un acconto in quei giorni è probabilmente
+  // anticipo della busta precedente.
+  let referenceMonth = defaultReferenceMonth(date);
 
   const body = `
     <div style="display: grid; gap: var(--space-12);">
@@ -44,6 +49,15 @@ export async function openAddAdvanceModal({ service, date, onSaved }) {
           <option value="">— seleziona —</option>
           ${users.map((u) => `<option value="${u.id}">${escapeHtml(u.full_name)} (${u.role})</option>`).join('')}
         </select>
+      </div>
+      <div>
+        <label class="label" style="margin:0;">Acconto per quale stipendio?*</label>
+        <div style="display: flex; align-items: center; gap: var(--space-8); margin-top: var(--space-4); padding: var(--space-8); border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--cream-soft);">
+          <button type="button" id="ref-prev" class="btn btn--ghost btn--icon" aria-label="Mese precedente">${icon('chevron-left', { size: 20 })}</button>
+          <span id="ref-label" style="flex: 1; text-align: center; font-family: var(--font-display); font-size: var(--text-lg); text-transform: uppercase;">${monthLabel(referenceMonth)}</span>
+          <button type="button" id="ref-next" class="btn btn--ghost btn--icon" aria-label="Mese successivo">${icon('chevron-right', { size: 20 })}</button>
+        </div>
+        <p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">Default automatico in base alla data di oggi. Modifica se necessario.</p>
       </div>
       <div>
         <label class="label" style="margin:0;">Importo*</label>
@@ -80,6 +94,7 @@ export async function openAddAdvanceModal({ service, date, onSaved }) {
           fd.append('amount', amount.toFixed(2));
           fd.append('service', service);
           fd.append('date', date);
+          fd.append('reference_month', referenceMonth);
           if (notes) fd.append('notes', notes);
           if (photoFile) fd.append('receipt_photo', photoFile);
           await apiUpload('/advances', fd);
@@ -95,6 +110,14 @@ export async function openAddAdvanceModal({ service, date, onSaved }) {
   ]);
 
   // Wire fields
+  document.getElementById('ref-prev').addEventListener('click', () => {
+    referenceMonth = shiftMonth(referenceMonth, -1);
+    document.getElementById('ref-label').textContent = monthLabel(referenceMonth);
+  });
+  document.getElementById('ref-next').addEventListener('click', () => {
+    referenceMonth = shiftMonth(referenceMonth, +1);
+    document.getElementById('ref-label').textContent = monthLabel(referenceMonth);
+  });
   document.getElementById('adv-user').addEventListener('change', (e) => {
     selectedUserId = e.target.value;
   });
@@ -127,3 +150,32 @@ export async function openAddAdvanceModal({ service, date, onSaved }) {
 function escapeHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+
+// ---------- reference month helpers ----------
+
+const MONTHS_IT = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                   'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+
+export function defaultReferenceMonth(dateIso) {
+  // dateIso: 'YYYY-MM-DD'
+  const [y, m, d] = dateIso.split('-').map(Number);
+  if (d <= 10) {
+    if (m === 1) return `${y - 1}-12`;
+    return `${y}-${String(m - 1).padStart(2, '0')}`;
+  }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+export function shiftMonth(ym, delta) {
+  let [y, m] = ym.split('-').map(Number);
+  m += delta;
+  while (m < 1) { m += 12; y -= 1; }
+  while (m > 12) { m -= 12; y += 1; }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+export function monthLabel(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return `${MONTHS_IT[m - 1]} ${y}`;
+}
+

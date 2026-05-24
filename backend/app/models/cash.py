@@ -125,6 +125,11 @@ class EmployeeAdvance(AmodeiBase, TimestampMixin):
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     receipt_photo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Per quale STIPENDIO mensile l'acconto va imputato (formato YYYY-MM).
+    # Diverso da `date` (quando è stato dato fisicamente dal cassetto): es. il
+    # 3 giugno do un anticipo a Marco riferito allo stipendio di MAGGIO che si
+    # paga il 10 giugno → date=2026-06-03, reference_month="2026-05".
+    reference_month: Mapped[str] = mapped_column(String(7), nullable=False)
 
     created_by_user_id: Mapped[int] = mapped_column(
         BigInteger,
@@ -152,6 +157,12 @@ class EmployeeAdvance(AmodeiBase, TimestampMixin):
             "OR (settled_at IS NOT NULL AND settled_in_payroll_month IS NOT NULL AND settled_by_user_id IS NOT NULL)",
             name="ck_employee_advances_settlement_complete",
         ),
+        CheckConstraint(
+            r"reference_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+            name="ck_employee_advances_reference_month_format",
+        ),
         Index("ix_employee_advances_date_service", "date", "service"),
         Index("ix_employee_advances_user_settled", "user_id", "settled_at"),
+        Index("ix_employee_advances_reference_month", "reference_month"),
+        Index("ix_employee_advances_user_reference_month", "user_id", "reference_month"),
     )

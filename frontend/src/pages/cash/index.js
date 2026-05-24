@@ -266,12 +266,19 @@ export async function mountCashPage(container, _params, query) {
 
   function advanceRow(a) {
     const settled = !!a.settled_at;
+    // Warning se reference_month diverso dal mese di "oggi" (data della cassa)
+    const todayMonth = state.date.slice(0, 7);   // 'YYYY-MM'
+    const isOtherMonth = a.reference_month && a.reference_month !== todayMonth;
+    const refLabel = a.reference_month_label || a.reference_month || '—';
+    const refBadge = isOtherMonth
+      ? `<span style="display: inline-flex; align-items: center; gap: 2px; padding: 1px var(--space-4); border-radius: 4px; background: rgba(201,148,42,0.18); color: var(--warning, #c9942a); font-size: var(--text-xs);" title="Acconto dato ora ma riferito alla busta di ${escapeHtml(refLabel)}">⚠ ${escapeHtml(refLabel)}</span>`
+      : `<span style="color: var(--ink-muted); font-size: var(--text-xs);">${escapeHtml(refLabel)}</span>`;
     return `
       <div class="row" data-adv="${a.id}" style="gap: var(--space-12); padding: var(--space-12) 0; border-top: 1px solid var(--border-soft);">
         <span style="width: 36px; height: 36px; border-radius: 50%; background: var(--cream-soft); display: inline-flex; align-items: center; justify-content: center; color: var(--ink-muted); flex-shrink: 0;">👤</span>
         <div class="flex-1" style="min-width:0;">
           <p style="margin:0; font-weight: 500;">${escapeHtml(a.user?.full_name || `#${a.user?.id}`)}</p>
-          <p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">${a.notes ? escapeHtml(a.notes) : (settled ? `saldato in ${escapeHtml(a.settled_in_payroll_month)}` : 'da saldare')}</p>
+          <p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">Per stipendio: ${refBadge}${a.notes ? ' · ' + escapeHtml(a.notes) : (settled ? ' · saldato in ' + escapeHtml(a.settled_in_payroll_month) : '')}</p>
         </div>
         <p style="margin:0; font-family: var(--font-display); font-size: var(--text-lg); color: var(--ink);">− € ${formatMoney(a.amount)}</p>
       </div>

@@ -8,7 +8,7 @@
 //     dipendente, ogni acconto ha bottone "Annulla saldo" (admin only).
 //   - Tutti: lista cronologica filtri liberi (filtro da/a + dipendente).
 
-import { apiGet, apiPost, apiDelete, ApiError } from '../../js/api.js';
+import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { userHasRole } from '../../js/auth.js';
@@ -24,7 +24,7 @@ export async function mountAdvancesList(container, _params, query) {
     tab: ['unsettled', 'settled', 'all'].includes(query.tab) ? query.tab : 'unsettled',
     settledMonth: query.payroll || isoMonth(new Date()),
     error: null,
-    unsettledGroups: [],
+    unsettledByMonth: [],     // [{reference_month, label, total_amount, by_user: [...]}]
     settledList: [],
     allList: [],
     summary: null,
@@ -36,13 +36,14 @@ export async function mountAdvancesList(container, _params, query) {
   async function load() {
     state.error = null;
     try {
-      const [unsettledGroups, summary, settledList, allList] = await Promise.all([
+      const [unsettledResp, summary, settledList, allList] = await Promise.all([
         apiGet('/advances/by-employee?settled=false'),
         apiGet('/advances/summary/monthly'),
         apiGet(`/advances?settled=true&payroll_month=${state.settledMonth}`),
         apiGet('/advances'),                  // current month, all states
       ]);
-      state.unsettledGroups = unsettledGroups;
+      // Nuova response shape: { by_reference_month: [...] }
+      state.unsettledByMonth = unsettledResp.by_reference_month || [];
       state.summary = summary;
       state.settledList = settledList;
       state.allList = allList;
@@ -67,12 +68,13 @@ export async function mountAdvancesList(container, _params, query) {
   function renderKpi() {
     const u = Number(state.summary?.unsettled_total || 0);
     const s = Number(state.summary?.total_amount_settled || 0);
+    const monthsCount = state.unsettledByMonth.length;
     return `
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); margin-bottom: var(--space-16);">
         <div class="card" style="padding: var(--space-12);">
           <p class="muted text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">Da saldare</p>
           <p style="margin: var(--space-4) 0 0 0; font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; color: var(--terracotta-dark);">€ ${formatMoney(u)}</p>
-          <p class="muted text-xs" style="margin: 2px 0 0 0;">${state.unsettledGroups.length} dipendenti</p>
+          <p class="muted text-xs" style="margin: 2px 0 0 0;">${monthsCount} ${monthsCount === 1 ? 'mese' : 'mesi'}</p>
         </div>
         <div class="card" style="padding: var(--space-12);">
           <p class="muted text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">Saldati nel mese</p>
@@ -105,10 +107,28 @@ export async function mountAdvancesList(container, _params, query) {
   }
 
   function renderUnsettled() {
-    if (state.unsettledGroups.length === 0) {
+    if (state.unsettledByMonth.length === 0) {
       return emptyCard('Tutti gli acconti sono saldati. 🎉');
     }
-    return state.unsettledGroups.map((g) => `
+    return state.unsettledByMonth.map(renderMonthSection).join('');
+  }
+
+  function renderMonthSection(section) {
+    return `
+      <div style="margin-bottom: var(--space-20);">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--space-8);">
+          <h2 style="margin: 0; font-family: var(--font-display); font-size: 1.4rem; color: var(--terracotta); text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">
+            ── ${escapeHtml(section.label.toUpperCase())} ──
+          </h2>
+          <span class="muted text-sm" style="font-family: var(--font-display);">€ ${formatMoney(section.total_amount)}</span>
+        </div>
+        ${section.by_user.map((g) => renderUserGroup(g, section)).join('')}
+      </div>
+    `;
+  }
+
+  function renderUserGroup(g, section) {
+    return `
       <div class="card" style="padding: var(--space-12); margin-bottom: var(--space-12);">
         <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-8); gap: var(--space-8);">
           <div>
@@ -121,11 +141,11 @@ export async function mountAdvancesList(container, _params, query) {
           ${g.advances.map(advanceCompactRow).join('')}
         </div>
         ${isAdmin ? `
-          <button type="button" data-settle-user="${g.user.id}" class="btn btn--primary full-width" style="margin-top: var(--space-12);">
-            ${icon('check', { size: 16 })}<span>Marca come saldati</span>
+          <button type="button" data-settle-user="${section.reference_month}|${g.user.id}" class="btn btn--primary full-width" style="margin-top: var(--space-12);">
+            ${icon('check', { size: 16 })}<span>Marca saldato in ${escapeHtml(section.label)}</span>
           </button>` : ''}
       </div>
-    `).join('');
+    `;
   }
 
   function renderSettled() {
@@ -174,10 +194,10 @@ export async function mountAdvancesList(container, _params, query) {
 
   function advanceCompactRow(a) {
     return `
-      <div style="display: flex; justify-content: space-between; padding: var(--space-4) 0; gap: var(--space-8); font-size: var(--text-sm);">
+      <button type="button" data-adv-detail="${a.id}" style="display: flex; justify-content: space-between; padding: var(--space-4) 0; gap: var(--space-8); width: 100%; background: transparent; border: none; cursor: pointer; font-size: var(--text-sm); text-align: left;">
         <span class="muted">${escapeHtml(a.date)} · ${a.service === 'lunch' ? 'pranzo' : 'cena'}${a.notes ? ' · ' + escapeHtml(a.notes) : ''}</span>
         <span style="font-family: var(--font-display);">€ ${formatMoney(a.amount)}</span>
-      </div>
+      </button>
     `;
   }
 
@@ -197,7 +217,12 @@ export async function mountAdvancesList(container, _params, query) {
       } catch (err) { showToast(err.message || 'Errore', 'danger', 4000); }
     });
     container.querySelectorAll('[data-settle-user]').forEach((b) => {
-      b.addEventListener('click', () => openSettleModal(Number(b.dataset.settleUser)));
+      // data-settle-user="REF_MONTH|USER_ID"
+      const [refMonth, uidStr] = b.dataset.settleUser.split('|');
+      b.addEventListener('click', () => openSettleModal(Number(uidStr), refMonth));
+    });
+    container.querySelectorAll('[data-adv-detail]').forEach((b) => {
+      b.addEventListener('click', () => openAdvanceDetail(Number(b.dataset.advDetail)));
     });
     container.querySelectorAll('[data-unsettle]').forEach((b) => {
       b.addEventListener('click', () => unsettleAdvance(Number(b.dataset.unsettle)));
@@ -207,16 +232,21 @@ export async function mountAdvancesList(container, _params, query) {
     });
   }
 
-  function openSettleModal(userId) {
-    const group = state.unsettledGroups.find((g) => g.user.id === userId);
+  function openSettleModal(userId, referenceMonth) {
+    // Trova il gruppo utente all'interno della sezione del mese
+    const section = state.unsettledByMonth.find((s) => s.reference_month === referenceMonth);
+    if (!section) return;
+    const group = section.by_user.find((g) => g.user.id === userId);
     if (!group) return;
-    const defaultMonth = isoMonth(new Date());
+    // Il default è il reference_month del gruppo (NON più sempre il mese corrente).
+    const defaultMonth = referenceMonth;
     const body = `
       <p>Stai per marcare come <strong>saldati</strong> tutti gli acconti di
-      <strong>${escapeHtml(group.user.full_name)}</strong> (€ ${formatMoney(group.total_amount)} totali).</p>
+      <strong>${escapeHtml(group.user.full_name)}</strong> riferiti alla busta di
+      <strong>${escapeHtml(section.label)}</strong> (€ ${formatMoney(group.total_amount)} totali).</p>
       <p class="muted text-sm">L'azione è reversibile (annulla saldo dal tab "Tutti").</p>
       <div style="margin-top: var(--space-12);">
-        <label class="label" for="payroll-input" style="margin:0;">Busta paga di riferimento</label>
+        <label class="label" for="payroll-input" style="margin:0;">Busta paga in cui detrai</label>
         <input type="month" id="payroll-input" class="input" value="${defaultMonth}" required>
       </div>
     `;
@@ -234,6 +264,80 @@ export async function mountAdvancesList(container, _params, query) {
             await load();
           } catch (err) {
             const msg = err instanceof ApiError && err.message ? err.message : 'Errore saldo';
+            showToast(msg, 'danger', 5000);
+          }
+        },
+      },
+    ]);
+  }
+
+  async function openAdvanceDetail(id) {
+    // Cerca l'acconto nei dati già caricati (in qualsiasi tab/sezione).
+    let adv = null;
+    for (const section of state.unsettledByMonth) {
+      for (const ug of section.by_user) {
+        const found = ug.advances.find((a) => a.id === id);
+        if (found) { adv = found; break; }
+      }
+      if (adv) break;
+    }
+    if (!adv) adv = state.allList.find((a) => a.id === id) || state.settledList.find((a) => a.id === id);
+    if (!adv) return;
+    const settled = !!adv.settled_at;
+    const refDifferent = adv.reference_month !== adv.date.slice(0, 7);
+    const body = `
+      <div style="display: grid; gap: var(--space-12);">
+        <div class="card" style="padding: var(--space-12); background: var(--cream-soft);">
+          <p style="margin:0; font-weight: 600;">${escapeHtml(adv.user?.full_name || '—')}</p>
+          <p class="muted text-xs" style="margin: 2px 0 0 0;">${adv.user?.role || ''}</p>
+          <p style="margin: var(--space-8) 0 0 0; font-family: var(--font-display); font-size: 1.6rem; color: var(--terracotta-dark);">€ ${formatMoney(adv.amount)}</p>
+        </div>
+        <div style="display: grid; gap: var(--space-8); font-size: var(--text-sm);">
+          <div class="row" style="justify-content: space-between;"><span class="muted">Dato il</span><span>${escapeHtml(adv.date)} · ${adv.service === 'lunch' ? 'pranzo' : 'cena'}</span></div>
+          <div class="row" style="justify-content: space-between;"><span class="muted">Per la busta di</span><span style="font-family: var(--font-display);">${escapeHtml(adv.reference_month_label || adv.reference_month)}</span></div>
+          ${refDifferent ? `<div class="alert alert--warn" style="padding: var(--space-8);"><div class="alert__body"><p class="alert__text">ℹ️ Mese diverso da quello in cui è stato dato</p></div></div>` : ''}
+          ${adv.notes ? `<div><span class="muted">Note:</span><p style="margin: 2px 0 0 0;">${escapeHtml(adv.notes)}</p></div>` : ''}
+          ${settled ? `
+            <div class="row" style="justify-content: space-between;"><span class="muted">Saldato in</span><span style="font-family: var(--font-display);">${escapeHtml(adv.settled_in_payroll_month)}</span></div>
+            <div class="row" style="justify-content: space-between;"><span class="muted">Da</span><span>${escapeHtml(adv.settled_by?.full_name || '—')}</span></div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+    const actions = [{ label: 'Chiudi', variant: 'ghost' }];
+    if (isAdmin) {
+      actions.push({
+        label: 'Cambia mese di riferimento', variant: 'secondary', closeOnClick: true,
+        onClick: () => openChangeReferenceMonth(adv),
+      });
+    }
+    showModal('Dettaglio acconto', body, actions);
+  }
+
+  function openChangeReferenceMonth(adv) {
+    const body = `
+      <p>Stai per cambiare il mese di riferimento dell'acconto di
+      <strong>${escapeHtml(adv.user?.full_name || '—')}</strong> (€ ${formatMoney(adv.amount)}).</p>
+      <p class="muted text-sm">Attuale: <strong>${escapeHtml(adv.reference_month_label || adv.reference_month)}</strong></p>
+      <div style="margin-top: var(--space-12);">
+        <label class="label" for="ref-input" style="margin:0;">Nuovo mese di riferimento</label>
+        <input type="month" id="ref-input" class="input" value="${escapeAttr(adv.reference_month)}" required>
+      </div>
+    `;
+    showModal('Cambia mese di riferimento', body, [
+      { label: 'Annulla', variant: 'ghost' },
+      {
+        label: 'Salva', variant: 'primary', closeOnClick: true,
+        onClick: async () => {
+          const newMonth = document.getElementById('ref-input').value;
+          if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(newMonth)) { showToast('Mese non valido', 'warn'); return; }
+          if (newMonth === adv.reference_month) { showToast('Nessun cambiamento', 'info'); return; }
+          try {
+            await apiPatch(`/advances/${adv.id}`, { reference_month: newMonth });
+            showToast('Mese di riferimento aggiornato', 'success');
+            await load();
+          } catch (err) {
+            const msg = err instanceof ApiError && err.message ? err.message : 'Errore';
             showToast(msg, 'danger', 5000);
           }
         },
@@ -299,6 +403,8 @@ function escapeHtml(s) {
 function escapeAttr(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
+
+
 
 function errorBlock(msg, onRetry) {
   setTimeout(() => {
