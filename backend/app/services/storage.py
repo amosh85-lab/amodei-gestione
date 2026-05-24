@@ -31,6 +31,10 @@ MAX_BYTES = 5 * 1024 * 1024            # 5 MB hard cap
 MAX_WIDTH = 1600                       # downscale anything wider
 JPEG_QUALITY = 85
 SAFE_FOLDER_RE = re.compile(r"^[a-z0-9_-]+$")
+# Whitelist of image formats we accept (Pillow names — these are what users
+# actually upload from phones). Anything else is rejected even if Pillow
+# can decode it (no TIFF/BMP/GIF/SVG/etc.).
+ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP", "HEIC", "HEIF"}
 
 
 class UploadError(ValueError):
@@ -60,13 +64,19 @@ def upload_image(file: UploadFile, folder: str) -> str:
     if len(contents) > MAX_BYTES:
         raise UploadError(f"File troppo grande (max {MAX_BYTES // 1024 // 1024} MB).")
 
-    # --- format guard: Pillow .verify() catches almost everything ---
+    # --- format guard: Pillow .verify() inspects magic bytes; then whitelist ---
     try:
         # verify() consumes the stream, so we open twice.
         Image.open(BytesIO(contents)).verify()
         img = Image.open(BytesIO(contents))
     except (UnidentifiedImageError, OSError) as exc:
         raise UploadError("Il file non sembra un'immagine valida.") from exc
+    detected = (img.format or "").upper()
+    if detected not in ALLOWED_FORMATS:
+        raise UploadError(
+            f"Formato {detected or 'sconosciuto'} non supportato. "
+            f"Carica un'immagine JPEG, PNG, WebP o HEIC."
+        )
 
     # --- normalise to RGB on white (handles transparent PNGs) ---
     if img.mode in ("RGBA", "LA"):

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.database import get_session
@@ -16,6 +16,7 @@ from app.schemas.auth import (
     UserOut,
 )
 from app.services.auth import create_access_token, hash_password, verify_password
+from app.services.rate_limit import login_rate_limit_check
 
 logger = logging.getLogger("amodei.auth")
 
@@ -36,6 +37,7 @@ def _invalid_credentials() -> HTTPException:
 def login(
     payload: LoginRequest,
     session: Session = Depends(get_session),
+    _rate_limit: None = Depends(login_rate_limit_check),
 ) -> TokenResponse:
     email = payload.email.strip().lower()
     user = session.query(User).filter(User.email == email).first()

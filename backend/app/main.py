@@ -5,10 +5,10 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import get_settings
 from app.routers import (
     alerts as alerts_router,
@@ -41,6 +41,20 @@ logger = logging.getLogger("amodei.api")
 
 settings = get_settings()
 
+# Production safety net: refuse to boot with CORS wildcard or default JWT
+# secret. Catches forgotten env vars before they hit real users.
+if settings.environment.lower() == "production":
+    if "*" in settings.allowed_origins_list:
+        raise RuntimeError(
+            "ALLOWED_ORIGINS non può essere '*' in produzione. "
+            "Imposta su Railway l'URL esatto del frontend Netlify."
+        )
+    if settings.jwt_secret == "change-me-in-production":
+        raise RuntimeError(
+            "JWT_SECRET non è stato cambiato dal default. "
+            "Imposta su Railway un secret robusto: `openssl rand -hex 32`."
+        )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -68,6 +82,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Adds baseline browser security headers to every response.
+
+    - HSTS: forces HTTPS for 1 year (Railway already terminates TLS).
+      Skipped on the local dev origin (http://localhost) so the browser
+      doesn't lock itself out of plain-HTTP development.
+    - X-Content-Type-Options: nosniff — disables MIME sniffing.
+    - X-Frame-Options: DENY — prevents the app from being iframed (clickjacking).
+    - Referrer-Policy: strict-origin-when-cross-origin — minimum leakage.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        # HSTS only when serving over HTTPS (don't issue it on dev http://).
+        if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 
 app.include_router(auth_router.router)
 app.include_router(suppliers_router.router)
