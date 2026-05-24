@@ -134,6 +134,12 @@ class DailySummaryOut(BaseModel):
     expenses_dinner: Decimal = Decimal("0")
     expenses_total: Decimal = Decimal("0")
 
+    # Employee cash advances — like expenses, they leave the drawer during
+    # the service. Added back to reconstruct gross cash income.
+    advances_lunch: Decimal = Decimal("0")
+    advances_dinner: Decimal = Decimal("0")
+    advances_total: Decimal = Decimal("0")
+
     # Lunch close (input) + derived partial
     cash_lunch_above_float: Decimal | None = None
     cash_lunch_incassato: Decimal | None = None    # above_float_lunch + expenses_lunch

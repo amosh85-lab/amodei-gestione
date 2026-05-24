@@ -12,6 +12,7 @@ import { icon } from '../../js/icons.js';
 import { showToast, showModal, confirmDialog, skeletonList } from '../../js/components.js';
 import { openClosePosModal, openNumpad } from './modal-close-pos.js';
 import { openAddExpenseModal } from './modal-add-expense.js';
+import { openAddAdvanceModal } from './modal-add-advance.js';
 
 const WARN_THRESHOLD = 5;     // |delta| in €
 const DANGER_THRESHOLD = 20;
@@ -27,6 +28,7 @@ export async function mountCashPage(container, _params, query) {
     actions: [
       { label: 'Storico', iconName: 'calendar', onClick: () => navigate('/cassa/storico') },
       { label: 'Statistiche', iconName: 'bar-chart', onClick: () => navigate('/cassa/statistiche') },
+      { label: 'Acconti', iconName: 'users', onClick: () => navigate('/acconti') },
     ],
   });
 
@@ -39,6 +41,7 @@ export async function mountCashPage(container, _params, query) {
     posLunch: null,
     posDinner: null,
     expenses: [],
+    advances: [],
     loading: true,
   };
 
@@ -49,7 +52,8 @@ export async function mountCashPage(container, _params, query) {
 
   async function load() {
     try {
-      const [summary, posList, expensesList] = await Promise.all([
+      const canSeeAdvances = userHasRole('admin', 'manager');
+      const [summary, posList, expensesList, advancesList] = await Promise.all([
         apiGet(`/daily-summary/${state.date === todayIso() ? 'today' : state.date}`).catch(async (err) => {
           // GET /{date} returns 404 for past days with no row — fall back to PATCH to seed
           if (err.status === 404) {
@@ -60,11 +64,15 @@ export async function mountCashPage(container, _params, query) {
         }),
         apiGet(`/pos-sessions?date=${state.date}`),
         apiGet(`/expenses?date=${state.date}`),
+        canSeeAdvances
+          ? apiGet(`/advances?from_date=${state.date}&to_date=${state.date}`).catch(() => [])
+          : Promise.resolve([]),
       ]);
       state.summary = summary;
       state.posLunch = posList.find((s) => s.service === 'lunch') || null;
       state.posDinner = posList.find((s) => s.service === 'dinner') || null;
       state.expenses = expensesList;
+      state.advances = advancesList;
       render();
     } catch (err) {
       container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">
@@ -132,6 +140,7 @@ export async function mountCashPage(container, _params, query) {
     const label = service === 'lunch' ? 'Pranzo' : 'Cena';
     const expensesForService = state.expenses.filter((e) => e.service === service);
     const expensesTotal = expensesForService.reduce((s, e) => s + Number(e.amount), 0);
+    const canSeeAdvances = userHasRole('admin', 'manager');
     const s = state.summary || {};
 
     // Cash input + partial config per service
@@ -185,6 +194,8 @@ export async function mountCashPage(container, _params, query) {
         </button>
       </div>
 
+      ${canSeeAdvances ? renderAdvancesCard(service, label) : ''}
+
       <!-- Cash input card -->
       <div class="card stack-12" style="margin-top: var(--space-16);">
         <p class="card__meta" style="margin:0;">${escapeHtml(cashLabel)}</p>
@@ -228,6 +239,45 @@ export async function mountCashPage(container, _params, query) {
     `;
   }
 
+  function renderAdvancesCard(service, label) {
+    const advancesForService = state.advances.filter((a) => a.service === service);
+    const advancesTotal = advancesForService.reduce((s, a) => s + Number(a.amount), 0);
+    return `
+      <div class="card stack-12" style="margin-top: var(--space-16); border-left: 4px solid var(--ink-muted);">
+        <div class="row" style="gap: var(--space-12); align-items: baseline;">
+          <p class="card__meta" style="margin:0;">Acconti dipendenti ${escapeHtml(label.toLowerCase())}</p>
+          <p class="font-display" style="margin:0; color: var(--ink); font-size: var(--text-xl); margin-left: auto;">
+            ${advancesForService.length === 0 ? '€ 0,00' : `− € ${advancesTotal.toFixed(2).replace('.', ',')}`}
+          </p>
+        </div>
+        <p class="muted text-xs" style="margin:0;">${advancesForService.length} ${advancesForService.length === 1 ? 'acconto' : 'acconti'} · da detrarre da busta paga</p>
+
+        <div class="stack-8">
+          ${advancesForService.map(advanceRow).join('') || '<p class="muted text-sm">Nessun acconto registrato per questo servizio.</p>'}
+        </div>
+
+        <button type="button" data-add-advance="${service}" class="btn btn--ghost full-width"
+                style="border: 2px dashed var(--border-strong); padding: var(--space-12);">
+          ${icon('plus', { size: 18 })}<span>Aggiungi acconto</span>
+        </button>
+      </div>
+    `;
+  }
+
+  function advanceRow(a) {
+    const settled = !!a.settled_at;
+    return `
+      <div class="row" data-adv="${a.id}" style="gap: var(--space-12); padding: var(--space-12) 0; border-top: 1px solid var(--border-soft);">
+        <span style="width: 36px; height: 36px; border-radius: 50%; background: var(--cream-soft); display: inline-flex; align-items: center; justify-content: center; color: var(--ink-muted); flex-shrink: 0;">👤</span>
+        <div class="flex-1" style="min-width:0;">
+          <p style="margin:0; font-weight: 500;">${escapeHtml(a.user?.full_name || `#${a.user?.id}`)}</p>
+          <p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">${a.notes ? escapeHtml(a.notes) : (settled ? `saldato in ${escapeHtml(a.settled_in_payroll_month)}` : 'da saldare')}</p>
+        </div>
+        <p style="margin:0; font-family: var(--font-display); font-size: var(--text-lg); color: var(--ink);">− € ${formatMoney(a.amount)}</p>
+      </div>
+    `;
+  }
+
   function renderTotale() {
     const s = state.summary;
     if (!s) return '<p class="muted">Caricamento…</p>';
@@ -259,6 +309,9 @@ export async function mountCashPage(container, _params, query) {
         <div style="margin-top: var(--space-20); padding-top: var(--space-20); border-top: 1px solid rgba(255,255,255,0.15);">
           ${darkRow('Parziale pranzo', lunchHint, 'inserito nel tab Pranzo')}
           ${darkRow('Parziale cena', dinnerHint, 'inserito nel tab Cena')}
+          ${Number(s.advances_total || 0) > 0
+            ? darkRow('di cui acconti dipendenti', `€ ${formatMoney(s.advances_total)}`, 'da detrarre da busta paga')
+            : ''}
           ${s.cash_incassato != null ? `
             <div style="display: flex; justify-content: space-between; padding: var(--space-8) 0; opacity: 0.85; color: inherit;">
               <span style="font-style: italic; color: inherit;">→ Cash incassato (totale)</span>
@@ -368,6 +421,15 @@ export async function mountCashPage(container, _params, query) {
         service: state.tab,
         date: state.date,
         onCreated: () => load(),
+      });
+    });
+    container.querySelectorAll('[data-add-advance]').forEach((b) => {
+      b.addEventListener('click', () => {
+        openAddAdvanceModal({
+          service: b.dataset.addAdvance,
+          date: state.date,
+          onSaved: () => load(),
+        });
       });
     });
     container.querySelectorAll('[data-exp-del]').forEach((b) => {

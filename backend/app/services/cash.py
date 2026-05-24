@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.cash import (
     DailySummary,
+    EmployeeAdvance,
     Expense,
     PosSession,
 )
@@ -85,6 +86,26 @@ def _expenses_totals(session: Session, day: date_type) -> tuple[Decimal, Decimal
     return lunch, dinner
 
 
+def _advances_totals(session: Session, day: date_type) -> tuple[Decimal, Decimal]:
+    """Employee cash advances given during the day, split by service.
+    Settlement state is irrelevant for the cash math — what matters is that
+    the money LEFT the drawer on this day."""
+    rows = session.execute(
+        select(EmployeeAdvance.service, func.sum(EmployeeAdvance.amount))
+        .where(EmployeeAdvance.date == day)
+        .group_by(EmployeeAdvance.service)
+    ).all()
+    lunch = ZERO
+    dinner = ZERO
+    for service, total in rows:
+        amt = _q(total or 0)
+        if service == "lunch" or getattr(service, "value", None) == "lunch":
+            lunch = amt
+        elif service == "dinner" or getattr(service, "value", None) == "dinner":
+            dinner = amt
+    return lunch, dinner
+
+
 def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
     """Compute the full DailySummaryOut for ``day``.
 
@@ -109,8 +130,10 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
 
     pos_lunch, pos_dinner = _pos_totals(session, day)
     expenses_lunch, expenses_dinner = _expenses_totals(session, day)
+    advances_lunch, advances_dinner = _advances_totals(session, day)
     pos_total = _q(pos_lunch + pos_dinner)
     expenses_total = _q(expenses_lunch + expenses_dinner)
+    advances_total = _q(advances_lunch + advances_dinner)
 
     cash_lunch_above = _q(summary_row.cash_lunch_above_float) if summary_row and summary_row.cash_lunch_above_float is not None else None
     cash_dinner_above = _q(summary_row.cash_dinner_above_float) if summary_row and summary_row.cash_dinner_above_float is not None else None
@@ -119,15 +142,17 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
 
     # Both cash inputs are NETTO (above-float, ≥ 0). The float is never part
     # of any calculation — it's only an informational snapshot.
+    # Both expenses AND employee advances LEFT the drawer during the service,
+    # so they need to be added back to reconstruct the gross cash income.
     if cash_lunch_above is not None:
-        cash_lunch_incassato = _q(cash_lunch_above + expenses_lunch)
+        cash_lunch_incassato = _q(cash_lunch_above + expenses_lunch + advances_lunch)
         partial_lunch = _q(pos_lunch + cash_lunch_incassato)
     else:
         cash_lunch_incassato = None
         partial_lunch = None
 
     if cash_dinner_above is not None:
-        cash_dinner_incassato = _q(cash_dinner_above + expenses_dinner)
+        cash_dinner_incassato = _q(cash_dinner_above + expenses_dinner + advances_dinner)
         partial_dinner = _q(pos_dinner + cash_dinner_incassato)
     else:
         cash_dinner_incassato = None
@@ -137,7 +162,7 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
     # day isn't fully counted yet).
     if cash_lunch_above is not None and cash_dinner_above is not None:
         cash_above_float = _q(cash_lunch_above + cash_dinner_above)
-        cash_incassato = _q(cash_above_float + expenses_total)
+        cash_incassato = _q(cash_above_float + expenses_total + advances_total)
         computed_total = _q(pos_total + cash_incassato)
     else:
         cash_above_float = None
@@ -165,6 +190,9 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
         expenses_lunch=expenses_lunch,
         expenses_dinner=expenses_dinner,
         expenses_total=expenses_total,
+        advances_lunch=advances_lunch,
+        advances_dinner=advances_dinner,
+        advances_total=advances_total,
         cash_lunch_above_float=cash_lunch_above,
         cash_lunch_incassato=cash_lunch_incassato,
         partial_lunch=partial_lunch,

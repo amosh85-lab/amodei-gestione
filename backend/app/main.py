@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import get_settings
 from app.routers import (
+    advances as advances_router,
     alerts as alerts_router,
     auth as auth_router,
     batches as batches_router,
@@ -145,6 +146,7 @@ app.include_router(pos_sessions_router.router)
 app.include_router(expenses_router.router)
 app.include_router(daily_summary_router.router)
 app.include_router(cash_export_router.router)
+app.include_router(advances_router.router)
 app.include_router(reports_router.router)
 app.include_router(forecast_router.router)
 app.include_router(metrics_router.router)

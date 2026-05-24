@@ -7,9 +7,11 @@ from decimal import Decimal
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
+    Index,
     String,
     Text,
     UniqueConstraint,
@@ -98,3 +100,58 @@ class DailySummary(AmodeiBase):
     )
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class EmployeeAdvance(AmodeiBase, TimestampMixin):
+    """Cash advance paid to a staff/manager employee, to be deducted from
+    a future payroll. Behaves like an expense on the day's cash math
+    (it leaves the drawer), but is tracked separately so we can answer
+    "who owes the bar how much" and "in which payroll did we settle it".
+    """
+
+    __tablename__ = "employee_advances"
+
+    date: Mapped[date_type] = mapped_column(Date, nullable=False)
+    service: Mapped[ServiceKind] = mapped_column(SERVICE_KIND_ENUM, nullable=False)
+
+    # The employee who received the advance. RESTRICT on user delete: if the
+    # user is removed, we shouldn't silently lose accounting records.
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    receipt_photo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_by_user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    # Settlement: when admin deducts the advance from a payroll, these
+    # three fields get filled. They're all nullable individually but a DB
+    # CHECK enforces "all-or-nothing" so we can't end up with a half-settled row.
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    settled_in_payroll_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    settled_by_user_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_employee_advances_amount_positive"),
+        CheckConstraint(
+            "(settled_at IS NULL AND settled_in_payroll_month IS NULL AND settled_by_user_id IS NULL) "
+            "OR (settled_at IS NOT NULL AND settled_in_payroll_month IS NOT NULL AND settled_by_user_id IS NOT NULL)",
+            name="ck_employee_advances_settlement_complete",
+        ),
+        Index("ix_employee_advances_date_service", "date", "service"),
+        Index("ix_employee_advances_user_settled", "user_id", "settled_at"),
+    )

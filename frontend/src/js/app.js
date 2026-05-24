@@ -72,6 +72,7 @@ route('/report/margini',      lazy('../pages/reports/margins.js',      'mountRep
 route('/riordini-previsti',   lazy('../pages/reports/forecast.js',     'mountReportsForecast'),    { requires: ['admin', 'manager'] });
 route('/impostazioni',        lazy('../pages/settings/index.js',       'mountSettings'),           { requires: 'auth' });
 route('/benvenuto',           lazy('../pages/onboarding/welcome.js',   'mountOnboardingWelcome'),  { requires: ['admin'] });
+route('/acconti',             lazy('../pages/advances/list.js',        'mountAdvancesList'),       { requires: ['admin', 'manager'] });
 
 // ---------- Chrome toggles per route ----------
 
