@@ -8,6 +8,7 @@ Guida operativa per portare lo scaffold dalla tua macchina alla produzione.
 3b. [Cron job giornaliero — segnalazioni di sistema](#3b-cron-job-giornaliero--segnalazioni-di-sistema)
 4. [Deploy frontend su Netlify](#4-deploy-frontend-su-netlify)
 5. [Wiring CORS tra Netlify e Railway](#5-wiring-cors-tra-netlify-e-railway)
+6. [Backup del database](#6-backup-del-database)
 
 ---
 
@@ -216,3 +217,50 @@ Ora hai entrambi gli URL. Configura il backend per accettarli:
 | `Errore connessione` + CORS in console   | `ALLOWED_ORIGINS` non include l'URL Netlify         | Aggiungi l'URL esatto (con `https://`) |
 | `502` da Railway                         | Backend in crash (controlla log Deployments)        | Vedi log; spesso env var mancante |
 | `/health` ok ma frontend non aggiornato  | Service worker che cacha la vecchia versione        | DevTools → Application → Service Workers → Unregister, hard reload |
+
+---
+
+## 6. Backup del database
+
+Due livelli di protezione: snapshot automatici Railway (always-on) e dump
+locale on-demand (prima di operazioni rischiose).
+
+### 6.1 Snapshot automatici Railway
+
+Railway esegue snapshot giornalieri del Postgres senza che tu faccia nulla.
+
+1. Vai sul servizio **Postgres** del progetto su Railway
+2. Tab **Backups** (o **Snapshots**)
+3. Verifica la **retention**: sul piano *Hobby* sono 7 giorni, sul piano *Pro* sono 30 giorni
+4. In caso di emergenza puoi **Restore** uno snapshot direttamente dalla dashboard (occhio: sovrascrive il DB attuale)
+
+### 6.2 Dump locale on-demand
+
+Prima di eseguire una migration grossa, una modifica massiva ai dati, o un
+qualunque script che potrebbe rompere lo stato, scarica un dump locale:
+
+```bash
+cd backend
+.venv/bin/python -m scripts.backup_db
+```
+
+Output: `backend/backups/amodei_YYYY-MM-DD_HH-MM-SS.sql` (gitignored).
+
+**Requisito**: `pg_dump` deve essere sul PATH. Su macOS:
+```bash
+brew install libpq
+brew link --force libpq
+```
+
+**Per ripristinare** un backup in caso di disastro:
+```bash
+psql <DATABASE_URL> < backend/backups/amodei_<TIMESTAMP>.sql
+```
+(scarica DATABASE_URL dalla dashboard Railway → Postgres → Variables)
+
+### 6.3 Quando fare un backup manuale
+
+- ⚠️ Prima di applicare una migration che droppa colonne o tabelle
+- ⚠️ Prima di lanciare uno script Python che fa bulk update/delete
+- ⚠️ Prima di un import massivo di prodotti / fornitori
+- ✅ Non serve farlo "ogni giorno" — gli snapshot Railway coprono già
