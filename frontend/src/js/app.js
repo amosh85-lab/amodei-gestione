@@ -93,7 +93,42 @@ async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (location.protocol === 'file:') return;
   try {
-    await navigator.serviceWorker.register('/service-worker.js');
+    const reg = await navigator.serviceWorker.register('/service-worker.js');
+
+    // A new SW has been downloaded and is in "waiting" — show update prompt.
+    const promptUpdate = (worker) => {
+      // showToast persists indefinitely; the user has to click to apply.
+      showToast(
+        'Nuova versione disponibile. Tocca per aggiornare.',
+        'info',
+        0,                                  // 0 = sticky
+        () => worker.postMessage({ type: 'SKIP_WAITING' }),
+      );
+    };
+
+    // Case 1: a SW was already in "waiting" when this page loaded (the user
+    // missed the previous prompt, or it's their first visit after a deploy).
+    if (reg.waiting) promptUpdate(reg.waiting);
+
+    // Case 2: a SW gets installed while the page is open (mid-session deploy).
+    reg.addEventListener('updatefound', () => {
+      const installing = reg.installing;
+      if (!installing) return;
+      installing.addEventListener('statechange', () => {
+        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+          promptUpdate(installing);
+        }
+      });
+    });
+
+    // When the SW activates (after we postMessage SKIP_WAITING), reload so
+    // the page picks up the new shell/assets.
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
   } catch (err) {
     console.warn('SW registration failed:', err);
   }

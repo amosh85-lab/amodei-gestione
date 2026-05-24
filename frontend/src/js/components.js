@@ -42,7 +42,7 @@ const TOAST_VARIANT_CLASS = {
  * @param {number} [duration=3000] - ms before auto-dismiss; 0 = sticky
  * @returns {() => void} - function to dismiss the toast manually
  */
-export function showToast(message, type = 'info', duration = 3000) {
+export function showToast(message, type = 'info', duration = 3000, onClick = null) {
   const host = ensureToastHost();
   const el = document.createElement('div');
   el.className = `toast ${TOAST_VARIANT_CLASS[type] || ''}`.trim();
@@ -60,6 +60,12 @@ export function showToast(message, type = 'info', duration = 3000) {
     el.classList.add('toast--leaving');
     el.addEventListener('animationend', () => el.remove(), { once: true });
   };
+
+  // If onClick is provided, the toast becomes interactive (e.g. "tap to update").
+  if (onClick) {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => { onClick(); dismiss(); });
+  }
 
   if (duration > 0) {
     setTimeout(dismiss, duration);
