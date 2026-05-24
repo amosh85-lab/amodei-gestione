@@ -30,6 +30,7 @@ import { mountCashHistory } from '../pages/cash/history.js';
 import { mountCashStats } from '../pages/cash/stats.js';
 import { mountReportsWaste } from '../pages/reports/waste.js';
 import { mountReportsMargins } from '../pages/reports/margins.js';
+import { mountReportsForecast } from '../pages/reports/forecast.js';
 
 // ---------- Dev/test helper: ?token=…&user=… on localhost ----------
 // Lets tools/screenshot_pages.py (or DevTools) seed an authenticated
@@ -74,6 +75,7 @@ route('/cassa/storico', mountCashHistory, { requires: ['admin', 'manager'] });
 route('/cassa/statistiche', mountCashStats, { requires: ['admin', 'manager'] });
 route('/report/sprechi', mountReportsWaste, { requires: ['admin', 'manager'] });
 route('/report/margini', mountReportsMargins, { requires: ['admin', 'manager'] });
+route('/riordini-previsti', mountReportsForecast, { requires: ['admin', 'manager'] });
 
 // ---------- Chrome toggles per route ----------
 

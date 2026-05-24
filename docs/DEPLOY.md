@@ -5,6 +5,7 @@ Guida operativa per portare lo scaffold dalla tua macchina alla produzione.
 1. [Setup locale](#1-setup-locale)
 2. [Repo GitHub](#2-repo-github)
 3. [Deploy backend su Railway](#3-deploy-backend-su-railway)
+3b. [Cron job giornaliero — segnalazioni di sistema](#3b-cron-job-giornaliero--segnalazioni-di-sistema)
 4. [Deploy frontend su Netlify](#4-deploy-frontend-su-netlify)
 5. [Wiring CORS tra Netlify e Railway](#5-wiring-cors-tra-netlify-e-railway)
 
@@ -118,6 +119,63 @@ git push -u origin main
 > - **Root Directory** del servizio è `backend`
 > - Railway usa il Dockerfile (lo dichiariamo in `railway.json`)
 > - Log del deploy nel tab **Deployments**
+
+---
+
+## 3b. Cron job giornaliero — segnalazioni di sistema
+
+Ogni notte alle 6:00 UTC un cron job esegue `python -m app.cron.run_forecast`
+che calcola il consumo medio degli ultimi 28 giorni di ogni prodotto e crea
+una `StockAlert(source="system")` per ogni prodotto previsto in stockout
+entro 7 giorni (skippa quelli con un alert già aperto, staff o sistema).
+
+### Configurazione su Railway
+
+Railway supporta i Cron Jobs nativamente. **Si crea un secondo servizio
+nello stesso progetto** che condivide il codice e le env var del backend.
+
+1. Nel progetto Railway → **+ New** → **GitHub Repo** → **stesso repo**
+   `amodei-gestione`.
+2. Nel nuovo servizio appena creato, **Settings**:
+   - **Service name**: `amodei-cron-forecast`
+   - **Root Directory**: `backend`
+   - **Cron Schedule**: `0 6 * * *` (ogni giorno alle 6:00 UTC = 8:00 ora italiana estiva / 7:00 invernale)
+   - **Custom Start Command**: `python -m app.cron.run_forecast`
+3. **Variables** del nuovo servizio: replica le stesse del backend principale
+   (DATABASE_URL, JWT_SECRET, APP_VERSION, ENVIRONMENT). Il più rapido è
+   usare le **Variable References**: vai su **Variables** → clicca
+   **+ New Variable** → modalità **Reference** → seleziona il servizio
+   backend e la chiave.
+   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
+   - `JWT_SECRET` = `${{amodei-backend.JWT_SECRET}}` *(o equivalente)*
+   - `APP_VERSION` e `ENVIRONMENT` possono essere copiati.
+4. **Settings → Networking**: NON serve esporre un dominio (non è un server
+   HTTP, è un job che parte e finisce).
+5. **Deploy**: Railway esegue il primo deploy. Vedrai un'esecuzione di
+   prova nella tab **Deployments**. La prima esecuzione programmata sarà
+   alla prossima 06:00 UTC.
+
+### Verifica
+
+- Nella tab **Deployments** del servizio cron vedi una entry per ogni
+  esecuzione, con i log di stdout del job:
+  ```
+  amodei.cron.forecast | Cron forecast completato: created=2, skipped_existing=1, skipped_no_signal=18
+  ```
+- Le alert generate appaiono in `/riordini` (tab **Aperte**) col badge
+  `🤖 sistema`. Manager/admin possono anche generarle on-demand dalla pagina
+  `/riordini-previsti` (`POST /forecast/generate-system-alerts`).
+
+### Alternative al cron Railway
+
+Se preferisci non aggiungere un secondo servizio:
+
+- **cron-job.org** (gratuito, esterno): crea un job che faccia
+  `POST https://<tuo-backend>/forecast/generate-system-alerts` ogni giorno
+  alle 6:00 UTC con header `Authorization: Bearer <token admin>`.
+  Tieni il token in una env var dedicata sul cron-job.org, mai nel repo.
+- Manuale: il bottone "Genera segnalazioni di sistema" in `/riordini-previsti`
+  fa lo stesso lavoro on-demand.
 
 ---
 

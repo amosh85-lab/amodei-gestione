@@ -20,6 +20,9 @@ export function mountReordersList(container, _params, query) {
     title: 'Riordini',
     brand: true,
     backHref: '/',
+    actions: [
+      { label: 'Previsti', iconName: 'bar-chart', onClick: () => navigate('/riordini-previsti') },
+    ],
   });
 
   container.innerHTML = `
@@ -101,11 +104,19 @@ export function mountReordersList(container, _params, query) {
       const suggested = a.suggested_qty
         ? `<span class="muted text-xs">richiesti ${formatQty(a.suggested_qty)}</span>`
         : '';
-      return `<div class="row" style="gap: var(--space-8); padding: var(--space-8) 0; border-top: 1px solid var(--border-soft);">
-        <span class="badge ${sev}">${sevLabel}</span>
-        <span class="flex-1 text-sm"><strong>${escapeHtml(a.product?.name || `#${a.product_id}`)}</strong></span>
-        <span class="muted text-xs" style="white-space:nowrap;">stock ${qtyTotal}</span>
-        ${suggested}
+      const systemBadge = a.source === 'system'
+        ? `<span class="badge" style="background: var(--cream-soft); color: var(--ink-muted); white-space: nowrap;" title="${escapeHtml(a.notes || 'Generato dal sistema')}">🤖 sistema</span>`
+        : '';
+      return `<div style="padding: var(--space-8) 0; border-top: 1px solid var(--border-soft);">
+        <div class="row" style="gap: var(--space-8); align-items: center; flex-wrap: wrap;">
+          <span class="badge ${sev}">${sevLabel}</span>
+          ${systemBadge}
+          <span class="flex-1 text-sm" style="min-width: 0;"><strong>${escapeHtml(a.product?.name || `#${a.product_id}`)}</strong></span>
+        </div>
+        <div class="row" style="gap: var(--space-8); align-items: baseline; margin-top: var(--space-4);">
+          <span class="muted text-xs" style="white-space:nowrap;">stock ${qtyTotal}</span>
+          ${suggested}
+        </div>
       </div>`;
     }).join('');
     const cta = g.supplier

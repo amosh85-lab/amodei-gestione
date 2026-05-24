@@ -9,7 +9,7 @@ import { setHeader } from '../../js/app-shell.js';
 import { icon } from '../../js/icons.js';
 import { showToast, skeletonList } from '../../js/components.js';
 
-export async function mountQuickSignal(container) {
+export async function mountQuickSignal(container, _params, query = {}) {
   setHeader({
     title: 'Segnala scorte',
     brand: true,
@@ -45,6 +45,15 @@ export async function mountQuickSignal(container) {
   // seed signaled from existing alerts so already-flagged products show up flagged
   for (const a of alertsByProduct.values()) {
     state.signaled.set(a.product_id, a.status_signaled);
+  }
+
+  // Deep-link preselect: /segnala?product_id=42 pre-filters the list by that
+  // product's name (sent here from /riordini-previsti). Falls back silently
+  // if the id isn't in the active products list.
+  const preselectId = parseInt(query.product_id, 10);
+  if (preselectId) {
+    const target = products.find((p) => p.id === preselectId);
+    if (target) state.search = target.name.toLowerCase();
   }
 
   render();
