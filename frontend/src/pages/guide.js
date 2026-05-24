@@ -130,7 +130,7 @@ function renderAdminGuide() {
 
     <h2 class="font-display" style="margin: var(--space-20) 0 var(--space-8) 0; font-size: 1.2rem;">Cose da fare periodicamente</h2>
     <ul style="padding-left: var(--space-20); margin: 0;">
-      <li class="text-sm" style="margin-bottom: var(--space-4);"><strong>Ogni giorno:</strong> chiudi la cassa entro la mezzanotte (POS + cash + fiscale + Ipratico)</li>
+      <li class="text-sm" style="margin-bottom: var(--space-4);"><strong>Ogni giorno:</strong> chiudi la cassa a fine servizio — POS + cash + fiscale + Ipratico (la PWA mostra in automatico la giornata operativa anche dopo mezzanotte, fino alle 6:00 del mattino)</li>
       <li class="text-sm" style="margin-bottom: var(--space-4);"><strong>Ogni settimana:</strong> guarda Riordini → Previsti per ordini in arrivo</li>
       <li class="text-sm" style="margin-bottom: var(--space-4);"><strong>Ogni mese:</strong> esporta CSV cassa per il commercialista (Cassa → Storico → 📤), controlla Food Cost, paga gli stipendi dalla pagina Stipendi</li>
       <li class="text-sm" style="margin-bottom: var(--space-4);"><strong>Ogni 6 mesi:</strong> ruota JWT_SECRET su Railway, cambia password admin</li>

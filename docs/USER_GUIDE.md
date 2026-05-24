@@ -200,8 +200,14 @@ prodotti sotto soglia. Lo fa anche automaticamente ogni notte alle 6 UTC.
 
 Vedi anche [MAINTENANCE.md](./MAINTENANCE.md) per i problemi più comuni.
 
-**Ogni giorno**: la cassa va chiusa entro la mezzanotte (POS pranzo+cena +
-cash + fiscale + Ipratico). Il sistema non chiude da solo.
+**Ogni giorno**: la cassa va chiusa a fine servizio — POS pranzo+cena +
+cash + fiscale + Ipratico. Il sistema non chiude da solo.
+
+> **Nota giornata operativa:** se chiudi la cassa dopo mezzanotte (es. alle 1:30
+> di notte), la PWA mostra automaticamente la giornata che stai chiudendo (quella
+> del giorno prima), non il "calendario di sistema". La soglia è alle **6:00 del
+> mattino**: prima delle 6 stai ancora chiudendo "ieri"; dalle 6 in poi è "oggi".
+> Vedrai un piccolo banner informativo nella pagina Cassa per ricordartelo.
 
 **Ogni settimana**: dai un'occhiata a **Riordini previsti** anche al di là
 delle segnalazioni automatiche.

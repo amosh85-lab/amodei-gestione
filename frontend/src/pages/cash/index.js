@@ -18,7 +18,9 @@ const WARN_THRESHOLD = 5;     // |delta| in €
 const DANGER_THRESHOLD = 20;
 
 export async function mountCashPage(container, _params, query) {
-  const date = query.date || new Date().toISOString().slice(0, 10);
+  // "Giornata operativa": tra mezzanotte e le 6:00 → giorno precedente.
+  // Vedi businessDayIso() in fondo al file.
+  const date = query.date || businessDayIso();
   const isAdmin = userHasRole('admin');
 
   setHeader({
@@ -84,6 +86,8 @@ export async function mountCashPage(container, _params, query) {
   function render() {
     const dateLabel = humanDate(state.date);
     const isToday = state.date === todayIso();
+    // Banner "giorno passato" SOLO se è stato l'utente a navigare indietro
+    // dal date picker (state.date != giornata operativa corrente).
     const pastBanner = isToday ? '' : `
       <div class="alert alert--info" style="margin-bottom: var(--space-12);">
         <span class="alert__icon">${icon('calendar', { size: 22 })}</span>
@@ -92,9 +96,19 @@ export async function mountCashPage(container, _params, query) {
           <a href="#/cassa" class="btn btn--ghost btn--sm" data-back-today>← Torna a oggi</a>
         </div>
       </div>`;
+    // Banner "siamo dopo mezzanotte, stai chiudendo la giornata di ieri":
+    // appare quando la giornata operativa NON coincide col giorno reale
+    // (es. sono le 1:30 del 25 ma stiamo chiudendo il 24).
+    const isOvernight = isToday && state.date !== realTodayIso();
+    const overnightBanner = isOvernight ? `
+      <div class="alert alert--info" style="margin-bottom: var(--space-12);">
+        <span class="alert__icon">${icon('clock', { size: 22 })}</span>
+        <div class="alert__body"><p class="alert__text">Sei nella notte dopo il servizio: ti stiamo mostrando la giornata operativa <strong>${escapeHtml(humanDate(state.date))}</strong> che si sta chiudendo.</p></div>
+      </div>` : '';
     container.innerHTML = `
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 96px;">
         ${pastBanner}
+        ${overnightBanner}
         <p class="muted text-sm" style="margin: 0 0 var(--space-12) 0; text-transform: capitalize;">${escapeHtml(dateLabel)}</p>
 
         ${renderTabs()}
@@ -493,8 +507,31 @@ export async function mountCashPage(container, _params, query) {
 
 // ---------- helpers ----------
 
-function todayIso() {
+// "Giornata operativa" del bar: dopo mezzanotte e prima delle 6:00 il bar
+// sta ancora chiudendo la serata precedente. Quindi se sono le 1:30 del
+// 25 maggio, la cassa che il manager vuole chiudere è quella del 24.
+const BUSINESS_DAY_THRESHOLD_HOUR = 6;
+
+function realTodayIso() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function businessDayIso() {
+  const now = new Date();
+  if (now.getHours() < BUSINESS_DAY_THRESHOLD_HOUR) {
+    // Backshift di un giorno
+    const d = new Date(now);
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+  return realTodayIso();
+}
+
+// Alias retro-compatibile per il resto del file: ovunque facciamo confronto
+// "stai visualizzando oggi?" intendiamo in realtà "stai visualizzando la
+// giornata operativa corrente?".
+function todayIso() {
+  return businessDayIso();
 }
 function humanDate(iso) {
   const d = new Date(iso);
