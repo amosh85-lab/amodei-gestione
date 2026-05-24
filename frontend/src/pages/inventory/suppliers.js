@@ -90,12 +90,14 @@ export function mountInventorySuppliers(container) {
     const tel = s.phone ? `<a href="tel:${escapeAttr(s.phone.replace(/\s+/g, ''))}" data-tel data-stop class="btn btn--ghost btn--sm">${icon('phone', { size: 16 })}<span>${escapeHtml(s.phone)}</span></a>` : '';
     const waDigits = s.whatsapp ? s.whatsapp.replace(/\D/g, '') : '';
     const wa = waDigits ? `<a href="https://wa.me/${waDigits}" target="_blank" rel="noopener" data-wa data-stop class="btn btn--ghost btn--sm" style="color: var(--bottle-green);">${icon('whatsapp', { size: 16 })}<span>WhatsApp</span></a>` : '';
+    const catBadge = renderCategoryBadge(s.category);
     return `
       <div class="card" data-edit="${s.id}" style="cursor: pointer; min-height: 56px;">
         <div class="row row--top" style="gap: var(--space-16); align-items: flex-start;">
           <div class="flex-1" style="min-width: 0;">
-            <div class="row" style="gap: var(--space-8);">
+            <div class="row" style="gap: var(--space-8); flex-wrap: wrap; align-items: center;">
               <p class="font-display text-lg" style="margin:0;">${escapeHtml(s.name)}</p>
+              ${catBadge}
               ${inactive ? `<span class="badge badge--danger">Disattivo</span>` : ''}
             </div>
             ${s.contact_name ? `<p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">${escapeHtml(s.contact_name)}</p>` : ''}
@@ -106,13 +108,38 @@ export function mountInventorySuppliers(container) {
       </div>`;
   }
 
+  function renderCategoryBadge(category) {
+    const labels = { food: '🍖 Food', beverage: '🍷 Beverage', consumo: '🧴 Consumo' };
+    const colors = {
+      food:     'background: rgba(181,57,31,0.12); color: var(--terracotta-dark);',
+      beverage: 'background: rgba(79,142,58,0.12); color: var(--bottle-green, #4f8e3a);',
+      consumo:  'background: rgba(120,120,120,0.12); color: var(--ink-muted);',
+    };
+    const label = labels[category] || category || 'food';
+    const style = colors[category] || colors.food;
+    return `<span class="badge" style="${style} white-space: nowrap; font-size: var(--text-xs);">${label}</span>`;
+  }
+
   function openEditModal(supplier) {
     const isNew = !supplier;
-    const s = supplier || { name: '', contact_name: '', phone: '', whatsapp: '', email: '', notes: '', active: true };
+    const s = supplier || { name: '', contact_name: '', phone: '', whatsapp: '', email: '', notes: '', active: true, category: 'food' };
+    const cat = s.category || 'food';
+    const catChip = (id, label) => `
+      <label style="display: inline-flex; align-items: center; gap: var(--space-4); padding: var(--space-8) var(--space-12); border: 1px solid var(--border-soft); border-radius: 999px; cursor: pointer; background: var(--off-white);">
+        <input type="radio" name="sf-cat" value="${id}" ${cat === id ? 'checked' : ''} style="margin: 0;">
+        <span>${label}</span>
+      </label>`;
     const body = `
       <form id="supp-form" class="stack-12">
         <div class="form-row"><label class="label label--required" for="sf-name">Nome</label>
           <input id="sf-name" class="input" required maxlength="160" value="${escapeAttr(s.name)}"></div>
+        <div class="form-row"><label class="label label--required">Categoria</label>
+          <div class="row" style="gap: var(--space-8); flex-wrap: wrap;">
+            ${catChip('food', '🍖 Food')}
+            ${catChip('beverage', '🍷 Beverage')}
+            ${catChip('consumo', '🧴 Consumo')}
+          </div>
+        </div>
         <div class="form-row"><label class="label" for="sf-contact">Referente</label>
           <input id="sf-contact" class="input" maxlength="160" value="${escapeAttr(s.contact_name || '')}"></div>
         <div class="grid-2">
@@ -130,8 +157,10 @@ export function mountInventorySuppliers(container) {
     const actions = [
       { label: 'Annulla', variant: 'ghost' },
       { label: isNew ? 'Crea' : 'Salva', variant: 'primary', closeOnClick: false, onClick: async (close) => {
+        const checkedCat = document.querySelector('input[name="sf-cat"]:checked');
         const payload = {
           name: document.getElementById('sf-name').value.trim(),
+          category: checkedCat ? checkedCat.value : 'food',
           contact_name: document.getElementById('sf-contact').value.trim() || null,
           phone: document.getElementById('sf-phone').value.trim() || null,
           whatsapp: document.getElementById('sf-wa').value.trim() || null,

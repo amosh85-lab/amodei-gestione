@@ -32,6 +32,7 @@ export async function mountSettings(container, _params, _query) {
 
   const state = {
     cashFloat: null,        // string number
+    foodCostThreshold: null, // string number (%)
     categories: [],
     users: [],
     loading: true,
@@ -47,14 +48,16 @@ export async function mountSettings(container, _params, _query) {
     state.loading = true;
     state.error = null;
     try {
-      const [floatResp, cats, users] = await Promise.all([
+      const [floatResp, cats, users, thr] = await Promise.all([
         apiGet('/settings/cash-float'),
         apiGet('/expense-categories'),
         apiGet('/users?include_inactive=true'),
+        apiGet('/settings/food_cost_threshold').catch(() => ({ value: '32.00' })),
       ]);
       state.cashFloat = floatResp.value;
       state.categories = cats;
       state.users = users;
+      state.foodCostThreshold = thr.value;
       state.loading = false;
       render();
     } catch (err) {
@@ -74,6 +77,7 @@ export async function mountSettings(container, _params, _query) {
         ${renderCashFloatCard()}
         ${renderUsersCard()}
         ${renderCategoriesCard()}
+        ${renderFoodCostThresholdCard()}
         ${renderAlertsThresholdsCard()}
       </section>
     `;
@@ -151,6 +155,24 @@ export async function mountSettings(container, _params, _query) {
     `;
   }
 
+  function renderFoodCostThresholdCard() {
+    return `
+      <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-16);">
+        <p class="muted text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">Soglia food cost</p>
+        <div style="display: flex; gap: var(--space-8); align-items: end; margin-top: var(--space-8);">
+          <div style="flex: 1;">
+            <input type="number" id="fc-threshold" class="input" step="0.01" min="0" max="100" value="${formatMoney(state.foodCostThreshold || 32)}">
+          </div>
+          <span style="font-family: var(--font-display); padding-bottom: var(--space-8);">%</span>
+          <button type="button" id="fc-save" class="btn btn--secondary btn--sm">Salva</button>
+        </div>
+        <p class="muted text-xs" style="margin: var(--space-8) 0 0 0;">
+          Anteprima: avvisi su categorie sopra il <strong>${formatMoney(state.foodCostThreshold || 32)}%</strong> del fatturato fiscale mensile.
+        </p>
+      </div>
+    `;
+  }
+
   function renderAlertsThresholdsCard() {
     return `
       <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-16); opacity: 0.7;">
@@ -177,6 +199,19 @@ export async function mountSettings(container, _params, _query) {
     });
     container.querySelectorAll('[data-cat-archive]').forEach((b) => {
       b.addEventListener('click', () => archiveCategory(Number(b.dataset.catArchive)));
+    });
+
+    const fcSave = container.querySelector('#fc-save');
+    if (fcSave) fcSave.addEventListener('click', async () => {
+      const v = parseFloat(container.querySelector('#fc-threshold').value);
+      if (Number.isNaN(v) || v < 0 || v > 100) { showToast('Valore non valido (0-100)', 'warn'); return; }
+      try {
+        await apiPatch('/settings/food_cost_threshold', { value: v.toFixed(2) });
+        showToast(`Soglia food cost aggiornata a ${v.toFixed(1)}%`, 'success');
+        await load();
+      } catch (err) {
+        showToast(err.message || 'Errore', 'danger', 5000);
+      }
     });
 
     const addUserBtn = container.querySelector('#add-user');

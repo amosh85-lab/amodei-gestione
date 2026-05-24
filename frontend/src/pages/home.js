@@ -81,6 +81,13 @@ export function mountHome(container) {
             <button type="button" data-go="/fornitori" class="btn btn--ghost btn--lg full-width">
               ${icon('phone', { size: 20 })}<span>Fornitori</span>
             </button>
+            <button type="button" data-go="/fatture" class="btn btn--ghost btn--lg full-width">
+              ${icon('cash', { size: 20 })}<span>Fatture</span>
+            </button>
+            <button type="button" data-go="/food-cost" class="btn btn--ghost btn--lg full-width" style="justify-content: space-between;">
+              <span style="display: inline-flex; align-items: center; gap: var(--space-8);">${icon('bar-chart', { size: 20 })}<span>Food Cost</span></span>
+              <span id="home-foodcost-pct" class="muted text-sm"></span>
+            </button>
           ` : ''}
         </div>
       </div>
@@ -102,9 +109,17 @@ export function mountHome(container) {
       if (!slot) return;
       const urgent = alerts.filter((a) => a.status_signaled === 'out').length;
       slot.innerHTML = alertBadge(alerts.length, { urgent });
-    }).catch(() => {
-      // Silent — the home should still load if alerts are unavailable.
-    });
+    }).catch(() => {});
+    // Async fetch food cost % for the home button (silent on error).
+    apiGet('/foodcost/monthly').then((d) => {
+      const slot = container.querySelector('#home-foodcost-pct');
+      if (!slot) return;
+      const op = d.operating_total;
+      const dotByStatus = { ok: '🟢', warn: '🟠', alert: '🔴' };
+      const dot = dotByStatus[op.status] || '';
+      const pctStr = op.pct_fiscal == null ? 'N/D' : `${Number(op.pct_fiscal).toFixed(1).replace('.', ',')}%`;
+      slot.textContent = `${pctStr} ${dot}`.trim();
+    }).catch(() => {});
   }
 }
 

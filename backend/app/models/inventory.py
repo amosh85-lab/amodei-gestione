@@ -64,6 +64,17 @@ class MovementType(str, enum.Enum):
     staff_meal = "staff_meal"
 
 
+class SupplierCategory(str, enum.Enum):
+    """Coarse category to slice invoices into food cost groups.
+    food = ingredients & meals · beverage = wine, drinks · consumo = cleaning
+    supplies, paper goods, small equipment. Drives the /foodcost dashboard.
+    """
+
+    food = "food"
+    beverage = "beverage"
+    consumo = "consumo"
+
+
 class MovementSource(str, enum.Enum):
     """High-level workflow that produced a Movement.
 
@@ -93,6 +104,13 @@ class Supplier(AmodeiBase, TimestampMixin):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     message_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    # Bucket per food-cost reporting. Default 'food' per i fornitori esistenti
+    # via server_default; admin può ri-categorizzarli da /fornitori.
+    category: Mapped[SupplierCategory] = mapped_column(
+        pg_enum(SupplierCategory, "supplier_category"),
+        nullable=False,
+        server_default=SupplierCategory.food.value,
+    )
 
 
 class Product(AmodeiBase, TimestampMixin):

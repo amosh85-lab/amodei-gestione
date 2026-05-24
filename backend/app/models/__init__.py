@@ -26,7 +26,14 @@ from app.models.inventory import (
     MovementType,
     Product,
     Supplier,
+    SupplierCategory,
     VatRate,
+)
+from app.models.invoices import (
+    Invoice,
+    InvoicePayment,
+    Payment,
+    PaymentMethod,
 )
 from app.models.inventory_close import EveningClose, EveningCloseItem
 from app.models.menu import CombinedDish, CombinedDishComponent
@@ -84,6 +91,12 @@ __all__ = [
     "SupplierOrder",
     "SupplierOrderStatus",
     "SupplierOrderLine",
+    # invoices + payments
+    "Invoice",
+    "Payment",
+    "PaymentMethod",
+    "InvoicePayment",
+    "SupplierCategory",
     # cash
     "ExpenseCategory",
     "PosSession",

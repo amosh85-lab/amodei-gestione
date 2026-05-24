@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -31,6 +32,7 @@ class _SupplierFields(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     notes: str | None = None
     message_template: str | None = None
+    category: Literal["food", "beverage", "consumo"] = "food"
 
     @field_validator("whatsapp")
     @classmethod
@@ -53,6 +55,7 @@ class SupplierUpdate(BaseModel):
     notes: str | None = None
     message_template: str | None = None
     active: bool | None = None
+    category: Literal["food", "beverage", "consumo"] | None = None
 
     @field_validator("whatsapp")
     @classmethod

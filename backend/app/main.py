@@ -20,11 +20,14 @@ from app.routers import (
     evening_close as evening_close_router,
     expense_categories as expense_categories_router,
     expenses as expenses_router,
+    foodcost as foodcost_router,
     forecast as forecast_router,
+    invoices as invoices_router,
     menu as menu_router,
     metrics as metrics_router,
     movements as movements_router,
     orders as orders_router,
+    payments as payments_router,
     pos_sessions as pos_sessions_router,
     products as products_router,
     reports as reports_router,
@@ -147,6 +150,9 @@ app.include_router(expenses_router.router)
 app.include_router(daily_summary_router.router)
 app.include_router(cash_export_router.router)
 app.include_router(advances_router.router)
+app.include_router(invoices_router.router)
+app.include_router(payments_router.router)
+app.include_router(foodcost_router.router)
 app.include_router(reports_router.router)
 app.include_router(forecast_router.router)
 app.include_router(metrics_router.router)
