@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 60 * 8
 
+    # --- observability ---
+    # When set, errors are sent to Sentry. Leave empty in dev.
+    sentry_dsn: str | None = None
+    # Sample rate for transactions (performance traces); 0.0 = off.
+    sentry_traces_sample_rate: float = 0.0
+
     @property
     def allowed_origins_list(self) -> list[str]:
         raw = self.allowed_origins.strip()

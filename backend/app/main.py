@@ -21,6 +21,7 @@ from app.routers import (
     expenses as expenses_router,
     forecast as forecast_router,
     menu as menu_router,
+    metrics as metrics_router,
     movements as movements_router,
     orders as orders_router,
     pos_sessions as pos_sessions_router,
@@ -31,15 +32,28 @@ from app.routers import (
     suppliers as suppliers_router,
     users as users_router,
 )
+from app.services.logging_setup import RequestIdMiddleware, configure_logging
+from app.services.metrics import MetricsMiddleware
 from app.services.storage import UPLOAD_ROOT, ensure_upload_root
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-)
+settings = get_settings()
+
+configure_logging(json_logs=settings.environment.lower() == "production")
 logger = logging.getLogger("amodei.api")
 
-settings = get_settings()
+# Sentry: only when SENTRY_DSN is set. Captures unhandled exceptions and
+# (with traces_sample_rate > 0) performance spans. Tags with environment.
+if settings.sentry_dsn:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        release=settings.app_version,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        send_default_pii=False,
+    )
+    logger.info("Sentry attivo (env=%s, traces=%.2f)",
+                settings.environment, settings.sentry_traces_sample_rate)
 
 # Production safety net: refuse to boot with CORS wildcard or default JWT
 # secret. Catches forgotten env vars before they hit real users.
@@ -110,6 +124,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestIdMiddleware)
+app.add_middleware(MetricsMiddleware)
 
 
 app.include_router(auth_router.router)
@@ -131,6 +147,7 @@ app.include_router(daily_summary_router.router)
 app.include_router(cash_export_router.router)
 app.include_router(reports_router.router)
 app.include_router(forecast_router.router)
+app.include_router(metrics_router.router)
 
 # Persistent uploads (mounted on Railway as a Volume at /app/uploads). The
 # directory is created on startup so the StaticFiles mount doesn't fail on
