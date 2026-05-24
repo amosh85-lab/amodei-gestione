@@ -10,7 +10,7 @@ const NAV_TABS = [
   { id: 'cassa',     label: 'Cassa',     iconName: 'cash',      route: '/cassa' },
   { id: 'menu',      label: 'Menu',      iconName: 'edit',      route: '/menu' },
   { id: 'magazzino', label: 'Magazzino', iconName: 'inventory', route: '/magazzino' },
-  { id: 'settings',  label: 'Impost.',   iconName: 'settings',  route: '/settings',  wip: true },
+  { id: 'settings',  label: 'Impost.',   iconName: 'settings',  route: '/impostazioni' },
 ];
 
 /**

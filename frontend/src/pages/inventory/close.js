@@ -140,7 +140,9 @@ export async function mountInventoryClose(container) {
           ${distinctCategories(state.items).map((cat) => chipHtml(cat, cat, state.category === cat)).join('')}
         </div>
 
-        <div id="ec-list" class="stack-8">${items.map(rowEditable).join('')}</div>
+        <div id="ec-list" class="stack-8">${items.length === 0
+          ? '<p class="muted" style="padding: var(--space-16); text-align: center; background: var(--cream-soft); border-radius: var(--radius-md);">Nessun prodotto trovato con questi filtri.</p>'
+          : items.map(rowEditable).join('')}</div>
       </section>
 
       <div style="position: fixed; left: 0; right: 0; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 9; padding: var(--space-12) var(--space-20); background: var(--off-white); border-top: 1px solid var(--border-soft); box-shadow: 0 -2px 12px rgba(120,30,20,0.06);">
@@ -156,7 +158,12 @@ export async function mountInventoryClose(container) {
     container.querySelector('#ec-search').addEventListener('input', (e) => {
       state.search = e.target.value.trim().toLowerCase();
       const listEl = container.querySelector('#ec-list');
-      if (listEl) listEl.innerHTML = filteredItems().map(rowEditable).join('');
+      if (listEl) {
+        const filtered = filteredItems();
+        listEl.innerHTML = filtered.length === 0
+          ? '<p class="muted" style="padding: var(--space-16); text-align: center; background: var(--cream-soft); border-radius: var(--radius-md);">Nessun prodotto trovato con questi filtri.</p>'
+          : filtered.map(rowEditable).join('');
+      }
       wireRowInputs();
     });
 

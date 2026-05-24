@@ -4,7 +4,7 @@ import { apiGet, apiPost, apiUpload, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
-import { showToast, showModal } from '../../js/components.js';
+import { showToast, showModal, skeletonList } from '../../js/components.js';
 
 const STEPS = [
   { id: 1, title: 'Prodotto' },
@@ -35,7 +35,8 @@ export async function mountInventoryLoad(container, _params, query) {
     photo_preview_url: null,   // ObjectURL (revoked on cleanup)
   };
 
-  // Preload products + suppliers (cheap, small lists for a wine bar)
+  // Show skeleton while we preload products + suppliers (small lists for a wine bar)
+  container.innerHTML = `<div class="container" style="padding-top: var(--space-24);">${skeletonList(3)}</div>`;
   let products = [];
   let suppliers = [];
   try {

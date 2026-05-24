@@ -9,10 +9,25 @@ import { icon } from '../js/icons.js';
 import { confirmDialog } from '../js/components.js';
 import { apiGet } from '../js/api.js';
 import { alertBadge } from '../components/alert-badge.js';
+import { isOnboardingSkipped } from './onboarding/welcome.js';
 
 export function mountHome(container) {
   const user = getCurrentUser();
   const isAdminOrManager = userHasRole('admin', 'manager');
+
+  // First-run onboarding: admin sees the wizard when the DB looks empty.
+  // Heuristic: 0 products AND 0 suppliers. Skippable; skip is sticky in
+  // localStorage so we don't pester the admin if they postpone.
+  if (userHasRole('admin') && !isOnboardingSkipped()) {
+    Promise.all([
+      apiGet('/products?limit=1').catch(() => []),
+      apiGet('/suppliers?limit=1').catch(() => []),
+    ]).then(([p, s]) => {
+      const empty = Array.isArray(p) && p.length === 0
+                 && Array.isArray(s) && s.length === 0;
+      if (empty) navigate('/benvenuto');
+    });
+  }
 
   setHeader({
     title: 'Amodei',

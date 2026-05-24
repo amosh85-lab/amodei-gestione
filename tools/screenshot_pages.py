@@ -128,6 +128,8 @@ def main() -> None:
         ("report-sprechi",  "/report/sprechi",         True),
         ("report-margini",  "/report/margini",         True),
         ("riordini-previsti", "/riordini-previsti",    True),
+        ("impostazioni",    "/impostazioni",           True),
+        ("benvenuto",       "/benvenuto",              True),
     ]
     if pid is not None:
         pages.insert(4, ("detail", f"/magazzino/{pid}", True))

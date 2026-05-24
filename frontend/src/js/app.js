@@ -31,6 +31,8 @@ import { mountCashStats } from '../pages/cash/stats.js';
 import { mountReportsWaste } from '../pages/reports/waste.js';
 import { mountReportsMargins } from '../pages/reports/margins.js';
 import { mountReportsForecast } from '../pages/reports/forecast.js';
+import { mountSettings } from '../pages/settings/index.js';
+import { mountOnboardingWelcome } from '../pages/onboarding/welcome.js';
 
 // ---------- Dev/test helper: ?token=…&user=… on localhost ----------
 // Lets tools/screenshot_pages.py (or DevTools) seed an authenticated
@@ -76,6 +78,8 @@ route('/cassa/statistiche', mountCashStats, { requires: ['admin', 'manager'] });
 route('/report/sprechi', mountReportsWaste, { requires: ['admin', 'manager'] });
 route('/report/margini', mountReportsMargins, { requires: ['admin', 'manager'] });
 route('/riordini-previsti', mountReportsForecast, { requires: ['admin', 'manager'] });
+route('/impostazioni', mountSettings, { requires: 'auth' });
+route('/benvenuto', mountOnboardingWelcome, { requires: ['admin'] });
 
 // ---------- Chrome toggles per route ----------
 
