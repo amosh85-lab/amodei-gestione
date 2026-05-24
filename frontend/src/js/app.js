@@ -9,30 +9,21 @@ import { showToast } from './components.js';
 import { renderNav, showHeader, showNav } from './app-shell.js';
 import { route, start, onRoute, navigate } from './router.js';
 
+// Eager imports: pages hit on every session.
+//   - /login: always on the cold path.
+//   - /: landing page, also used by nav fallback.
+//   - /cassa: most-used screen; we want it instant on first tap.
+//   - /segnala: staff's daily flow, also cheap.
+// Everything else is lazy-loaded via dynamic import() on first navigation:
+// network round-trip ~ 1 small JS file, then cached by the service worker.
 import { mountLogin } from '../pages/login.js';
 import { mountHome } from '../pages/home.js';
-import { mountInventoryList } from '../pages/inventory/list.js';
-import { mountInventoryDetail } from '../pages/inventory/detail.js';
-import { mountInventoryLoad } from '../pages/inventory/load.js';
-import { mountInventorySuppliers } from '../pages/inventory/suppliers.js';
-import { mountInventoryClose } from '../pages/inventory/close.js';
-import { mountMenuList } from '../pages/menu/list.js';
-import { mountCombinedEdit } from '../pages/menu/combined-edit.js';
-import { mountStaffMealsList } from '../pages/staff-meals/list.js';
-import { mountStaffMealsNew } from '../pages/staff-meals/new.js';
-import { mountStaffMealsDetail } from '../pages/staff-meals/detail.js';
-import { mountStaffMealsStats } from '../pages/staff-meals/stats.js';
-import { mountQuickSignal } from '../pages/alerts/quick-signal.js';
-import { mountReordersList } from '../pages/reorders/list.js';
-import { mountReorderEdit } from '../pages/reorders/edit.js';
 import { mountCashPage } from '../pages/cash/index.js';
-import { mountCashHistory } from '../pages/cash/history.js';
-import { mountCashStats } from '../pages/cash/stats.js';
-import { mountReportsWaste } from '../pages/reports/waste.js';
-import { mountReportsMargins } from '../pages/reports/margins.js';
-import { mountReportsForecast } from '../pages/reports/forecast.js';
-import { mountSettings } from '../pages/settings/index.js';
-import { mountOnboardingWelcome } from '../pages/onboarding/welcome.js';
+import { mountQuickSignal } from '../pages/alerts/quick-signal.js';
+
+// Lazy loader: returns a route handler that imports the page on first use.
+const lazy = (path, name) => (container, params, query) =>
+  import(/* webpackChunkName: "page" */ path).then((m) => m[name](container, params, query));
 
 // ---------- Dev/test helper: ?token=…&user=… on localhost ----------
 // Lets tools/screenshot_pages.py (or DevTools) seed an authenticated
@@ -57,29 +48,30 @@ import { mountOnboardingWelcome } from '../pages/onboarding/welcome.js';
 
 route('/login', mountLogin);
 route('/', mountHome, { requires: 'auth' });
-route('/magazzino', mountInventoryList, { requires: 'auth' });
-route('/magazzino/carico', mountInventoryLoad, { requires: 'auth' });
-route('/magazzino/:id', mountInventoryDetail, { requires: 'auth' });
-route('/chiusura-serale', mountInventoryClose, { requires: 'auth' });
-route('/fornitori', mountInventorySuppliers, { requires: ['admin', 'manager'] });
-route('/menu', mountMenuList, { requires: 'auth' });
-route('/menu/combined/:id', mountCombinedEdit, { requires: ['admin', 'manager'] });
-route('/pasti-staff', mountStaffMealsList, { requires: 'auth' });
-route('/pasti-staff/nuovo', mountStaffMealsNew, { requires: 'auth' });
-route('/pasti-staff/statistiche', mountStaffMealsStats, { requires: ['admin', 'manager'] });
-route('/pasti-staff/:id', mountStaffMealsDetail, { requires: 'auth' });
-route('/segnala', mountQuickSignal, { requires: 'auth' });
-route('/riordini', mountReordersList, { requires: ['admin', 'manager'] });
-route('/riordini/nuovo', mountReorderEdit, { requires: ['admin', 'manager'] });
-route('/riordini/:id', mountReorderEdit, { requires: ['admin', 'manager'] });
 route('/cassa', mountCashPage, { requires: ['admin', 'manager'] });
-route('/cassa/storico', mountCashHistory, { requires: ['admin', 'manager'] });
-route('/cassa/statistiche', mountCashStats, { requires: ['admin', 'manager'] });
-route('/report/sprechi', mountReportsWaste, { requires: ['admin', 'manager'] });
-route('/report/margini', mountReportsMargins, { requires: ['admin', 'manager'] });
-route('/riordini-previsti', mountReportsForecast, { requires: ['admin', 'manager'] });
-route('/impostazioni', mountSettings, { requires: 'auth' });
-route('/benvenuto', mountOnboardingWelcome, { requires: ['admin'] });
+route('/segnala', mountQuickSignal, { requires: 'auth' });
+
+route('/magazzino',           lazy('../pages/inventory/list.js',       'mountInventoryList'),      { requires: 'auth' });
+route('/magazzino/carico',    lazy('../pages/inventory/load.js',       'mountInventoryLoad'),      { requires: 'auth' });
+route('/magazzino/:id',       lazy('../pages/inventory/detail.js',     'mountInventoryDetail'),    { requires: 'auth' });
+route('/chiusura-serale',     lazy('../pages/inventory/close.js',      'mountInventoryClose'),     { requires: 'auth' });
+route('/fornitori',           lazy('../pages/inventory/suppliers.js',  'mountInventorySuppliers'), { requires: ['admin', 'manager'] });
+route('/menu',                lazy('../pages/menu/list.js',            'mountMenuList'),           { requires: 'auth' });
+route('/menu/combined/:id',   lazy('../pages/menu/combined-edit.js',   'mountCombinedEdit'),       { requires: ['admin', 'manager'] });
+route('/pasti-staff',         lazy('../pages/staff-meals/list.js',     'mountStaffMealsList'),     { requires: 'auth' });
+route('/pasti-staff/nuovo',   lazy('../pages/staff-meals/new.js',      'mountStaffMealsNew'),      { requires: 'auth' });
+route('/pasti-staff/statistiche', lazy('../pages/staff-meals/stats.js', 'mountStaffMealsStats'),   { requires: ['admin', 'manager'] });
+route('/pasti-staff/:id',     lazy('../pages/staff-meals/detail.js',   'mountStaffMealsDetail'),   { requires: 'auth' });
+route('/riordini',            lazy('../pages/reorders/list.js',        'mountReordersList'),       { requires: ['admin', 'manager'] });
+route('/riordini/nuovo',      lazy('../pages/reorders/edit.js',        'mountReorderEdit'),        { requires: ['admin', 'manager'] });
+route('/riordini/:id',        lazy('../pages/reorders/edit.js',        'mountReorderEdit'),        { requires: ['admin', 'manager'] });
+route('/cassa/storico',       lazy('../pages/cash/history.js',         'mountCashHistory'),        { requires: ['admin', 'manager'] });
+route('/cassa/statistiche',   lazy('../pages/cash/stats.js',           'mountCashStats'),          { requires: ['admin', 'manager'] });
+route('/report/sprechi',      lazy('../pages/reports/waste.js',        'mountReportsWaste'),       { requires: ['admin', 'manager'] });
+route('/report/margini',      lazy('../pages/reports/margins.js',      'mountReportsMargins'),     { requires: ['admin', 'manager'] });
+route('/riordini-previsti',   lazy('../pages/reports/forecast.js',     'mountReportsForecast'),    { requires: ['admin', 'manager'] });
+route('/impostazioni',        lazy('../pages/settings/index.js',       'mountSettings'),           { requires: 'auth' });
+route('/benvenuto',           lazy('../pages/onboarding/welcome.js',   'mountOnboardingWelcome'),  { requires: ['admin'] });
 
 // ---------- Chrome toggles per route ----------
 
