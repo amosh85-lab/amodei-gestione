@@ -12,3 +12,4 @@ python-dotenv==1.0.1
 pillow==11.1.0
 certifi==2026.5.20
 sentry-sdk[fastapi]==2.20.0
+email-validator==2.2.0

@@ -33,6 +33,7 @@ export async function mountSettings(container, _params, _query) {
   const state = {
     cashFloat: null,        // string number
     categories: [],
+    users: [],
     loading: true,
     error: null,
   };
@@ -46,12 +47,14 @@ export async function mountSettings(container, _params, _query) {
     state.loading = true;
     state.error = null;
     try {
-      const [floatResp, cats] = await Promise.all([
+      const [floatResp, cats, users] = await Promise.all([
         apiGet('/settings/cash-float'),
         apiGet('/expense-categories'),
+        apiGet('/users?include_inactive=true'),
       ]);
       state.cashFloat = floatResp.value;
       state.categories = cats;
+      state.users = users;
       state.loading = false;
       render();
     } catch (err) {
@@ -69,11 +72,42 @@ export async function mountSettings(container, _params, _query) {
     container.innerHTML = `
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 96px;">
         ${renderCashFloatCard()}
+        ${renderUsersCard()}
         ${renderCategoriesCard()}
         ${renderAlertsThresholdsCard()}
       </section>
     `;
     wire();
+  }
+
+  function renderUsersCard() {
+    return `
+      <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-16);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-12);">
+          <p class="muted text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">Utenti</p>
+          <button type="button" id="add-user" class="btn btn--primary btn--sm">${icon('plus', { size: 16 })} Nuovo</button>
+        </div>
+        ${state.users.length === 0
+          ? '<p class="muted text-sm" style="text-align: center; padding: var(--space-12) 0;">Nessun utente.</p>'
+          : `<div>${state.users.map((u, i) => userRow(u, i)).join('')}</div>`}
+      </div>
+    `;
+  }
+
+  function userRow(u, i) {
+    const roleBadgeColor = u.role === 'admin' ? 'var(--terracotta-dark)'
+                         : u.role === 'manager' ? 'var(--warning, #c9942a)'
+                         : 'var(--ink-muted)';
+    return `
+      <div style="display: flex; align-items: center; gap: var(--space-12); padding: var(--space-8) 0; ${i > 0 ? 'border-top: 1px solid var(--border-soft);' : ''}">
+        <div style="flex: 1; min-width: 0; ${u.active ? '' : 'opacity: 0.5;'}">
+          <p style="margin: 0; font-weight: 500;">${escapeHtml(u.full_name)}</p>
+          <p class="muted text-xs" style="margin: 2px 0 0 0;">${escapeHtml(u.email)}${u.active ? '' : ' · disattivato'}</p>
+        </div>
+        <span class="badge" style="background: ${roleBadgeColor}; color: var(--off-white); font-size: var(--text-xs); white-space: nowrap;">${u.role}</span>
+        <button type="button" data-user-edit="${u.id}" class="btn btn--ghost btn--icon" aria-label="Modifica">${icon('edit', { size: 16 })}</button>
+      </div>
+    `;
   }
 
   function renderCashFloatCard() {
@@ -144,6 +178,90 @@ export async function mountSettings(container, _params, _query) {
     container.querySelectorAll('[data-cat-archive]').forEach((b) => {
       b.addEventListener('click', () => archiveCategory(Number(b.dataset.catArchive)));
     });
+
+    const addUserBtn = container.querySelector('#add-user');
+    if (addUserBtn) addUserBtn.addEventListener('click', () => openUserEditor(null));
+
+    container.querySelectorAll('[data-user-edit]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const u = state.users.find((x) => x.id === Number(b.dataset.userEdit));
+        if (u) openUserEditor(u);
+      });
+    });
+  }
+
+  function openUserEditor(user) {
+    const isNew = !user;
+    const body = `
+      <div style="display: grid; gap: var(--space-12);">
+        <div>
+          <label class="label" for="u-email" style="margin:0;">Email${isNew ? '*' : ' (non modificabile)'}</label>
+          <input type="email" id="u-email" class="input" value="${user ? escapeAttr(user.email) : ''}" maxlength="255" ${isNew ? 'autofocus required' : 'disabled'}>
+        </div>
+        <div>
+          <label class="label" for="u-name" style="margin:0;">Nome completo*</label>
+          <input type="text" id="u-name" class="input" value="${user ? escapeAttr(user.full_name) : ''}" maxlength="160" ${!isNew ? 'autofocus' : ''}>
+        </div>
+        <div>
+          <label class="label" for="u-role" style="margin:0;">Ruolo*</label>
+          <select id="u-role" class="input">
+            <option value="staff"   ${user?.role === 'staff'   ? 'selected' : ''}>Staff</option>
+            <option value="manager" ${user?.role === 'manager' ? 'selected' : ''}>Manager</option>
+            <option value="admin"   ${user?.role === 'admin'   ? 'selected' : ''}>Admin</option>
+          </select>
+        </div>
+        <div>
+          <label class="label" for="u-password" style="margin:0;">Password${isNew ? '*' : ' (lascia vuoto per non cambiare)'}</label>
+          <input type="text" id="u-password" class="input" minlength="8" placeholder="min. 8 caratteri">
+        </div>
+        ${!isNew ? `
+          <label style="display: flex; align-items: center; gap: var(--space-8);">
+            <input type="checkbox" id="u-active" ${user.active ? 'checked' : ''}>
+            <span>Account attivo</span>
+          </label>
+        ` : ''}
+      </div>
+    `;
+    showModal(
+      isNew ? 'Nuovo utente' : 'Modifica utente',
+      body,
+      [
+        { label: 'Annulla', variant: 'ghost' },
+        {
+          label: isNew ? 'Crea' : 'Salva',
+          variant: 'primary',
+          closeOnClick: true,
+          onClick: async () => {
+            const fullName = document.getElementById('u-name').value.trim();
+            const role = document.getElementById('u-role').value;
+            const password = document.getElementById('u-password').value;
+            if (!fullName || !role) { showToast('Nome e ruolo obbligatori', 'warn'); return; }
+            try {
+              if (isNew) {
+                const email = document.getElementById('u-email').value.trim().toLowerCase();
+                if (!email) { showToast('Email obbligatoria', 'warn'); return; }
+                if (!password || password.length < 8) { showToast('Password min. 8 caratteri', 'warn'); return; }
+                await apiPost('/users', { email, full_name: fullName, role, password });
+                showToast('Utente creato', 'success');
+              } else {
+                const active = document.getElementById('u-active').checked;
+                const body = { full_name: fullName, role, active };
+                if (password) {
+                  if (password.length < 8) { showToast('Password min. 8 caratteri', 'warn'); return; }
+                  body.password = password;
+                }
+                await apiPatch(`/users/${user.id}`, body);
+                showToast('Utente aggiornato', 'success');
+              }
+              await load();
+            } catch (err) {
+              const msg = err instanceof ApiError && err.message ? err.message : 'Errore salvataggio';
+              showToast(msg, 'danger', 5000);
+            }
+          },
+        },
+      ],
+    );
   }
 
   function openEditFloat() {
