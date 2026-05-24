@@ -135,6 +135,11 @@ def main() -> None:
         ("fatture-da-pagare", "/fatture/da-pagare",    True),
         ("pagamenti",       "/pagamenti",              True),
         ("food-cost",       "/food-cost",              True),
+        ("turni",           "/turni",                  True),
+        ("turni-calendario", "/turni/calendario",      True),
+        ("turni-settimanale", "/turni/settimanale",    True),
+        ("stipendi",        "/stipendi",               True),
+        ("miei-turni",      "/miei-turni",             True),
     ]
     if pid is not None:
         pages.insert(4, ("detail", f"/magazzino/{pid}", True))

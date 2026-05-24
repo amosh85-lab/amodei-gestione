@@ -35,6 +35,7 @@ from app.routers import (
     staff_meals as staff_meals_router,
     suppliers as suppliers_router,
     users as users_router,
+    work_shifts as work_shifts_router,
 )
 from app.services.logging_setup import RequestIdMiddleware, configure_logging
 from app.services.metrics import MetricsMiddleware
@@ -153,6 +154,7 @@ app.include_router(advances_router.router)
 app.include_router(invoices_router.router)
 app.include_router(payments_router.router)
 app.include_router(foodcost_router.router)
+app.include_router(work_shifts_router.router)
 app.include_router(reports_router.router)
 app.include_router(forecast_router.router)
 app.include_router(metrics_router.router)

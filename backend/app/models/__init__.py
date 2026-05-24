@@ -53,6 +53,7 @@ from app.models.staff_meals import (
     StaffMealParticipant,
 )
 from app.models.users import User, UserRole
+from app.models.work_shifts import WorkShift
 
 __all__ = [
     # base
@@ -105,4 +106,6 @@ __all__ = [
     # settings
     "AppSetting",
     "AppSettingValueType",
+    # work shifts
+    "WorkShift",
 ]

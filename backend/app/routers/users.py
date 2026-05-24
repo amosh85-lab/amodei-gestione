@@ -14,27 +14,36 @@ from sqlalchemy.orm import Session
 
 from app.database import get_session
 from app.dependencies.auth import get_current_user, require_admin
-from app.models.users import User
-from app.schemas.users import UserCreate, UserMini, UserUpdate
+from app.models.users import User, UserRole
+from app.schemas.users import UserCreate, UserMini, UserOutAdmin, UserUpdate
 from app.services.auth import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
 logger = logging.getLogger("amodei.users")
 
 
-@router.get("", response_model=list[UserMini])
+@router.get("")
 def list_users(
     include_inactive: bool = Query(False),
     session: Session = Depends(get_session),
-    _user: User = Depends(get_current_user),
-) -> list[User]:
+    actor: User = Depends(get_current_user),
+) -> list[dict]:
+    """Response shape adapts to role:
+    - admin → UserOutAdmin (includes hourly_rate + weekly_hours_contract)
+    - everyone else → UserMini (no payroll fields)
+    We serialize manually so non-admin callers never even see those keys
+    in the JSON.
+    """
     stmt = select(User).order_by(User.full_name.asc())
     if not include_inactive:
         stmt = stmt.where(User.active.is_(True))
-    return list(session.scalars(stmt))
+    users = list(session.scalars(stmt))
+    if actor.role == UserRole.admin:
+        return [UserOutAdmin.model_validate(u).model_dump() for u in users]
+    return [UserMini.model_validate(u).model_dump() for u in users]
 
 
-@router.post("", response_model=UserMini, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=UserOutAdmin, status_code=status.HTTP_201_CREATED)
 def create_user(
     payload: UserCreate,
     session: Session = Depends(get_session),
@@ -50,6 +59,8 @@ def create_user(
         role=payload.role,
         password_hash=hash_password(payload.password),
         active=True,
+        hourly_rate=payload.hourly_rate,
+        weekly_hours_contract=payload.weekly_hours_contract,
     )
     session.add(new_user)
     session.commit()
@@ -59,7 +70,7 @@ def create_user(
     return new_user
 
 
-@router.patch("/{user_id}", response_model=UserMini)
+@router.patch("/{user_id}", response_model=UserOutAdmin)
 def update_user(
     user_id: int,
     payload: UserUpdate,
@@ -91,6 +102,12 @@ def update_user(
     if "active" in changes and changes["active"] is not None:
         target.active = changes["active"]
         del changes["active"]
+    if "hourly_rate" in changes:
+        target.hourly_rate = changes["hourly_rate"]
+        del changes["hourly_rate"]
+    if "weekly_hours_contract" in changes:
+        target.weekly_hours_contract = changes["weekly_hours_contract"]
+        del changes["weekly_hours_contract"]
 
     session.commit()
     session.refresh(target)

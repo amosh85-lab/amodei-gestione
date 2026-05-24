@@ -73,6 +73,12 @@ route('/riordini-previsti',   lazy('../pages/reports/forecast.js',     'mountRep
 route('/impostazioni',        lazy('../pages/settings/index.js',       'mountSettings'),           { requires: 'auth' });
 route('/benvenuto',           lazy('../pages/onboarding/welcome.js',   'mountOnboardingWelcome'),  { requires: ['admin'] });
 route('/acconti',             lazy('../pages/advances/list.js',        'mountAdvancesList'),       { requires: ['admin', 'manager'] });
+route('/turni',               lazy('../pages/shifts/insert.js',        'mountShiftsInsert'),       { requires: ['admin', 'manager'] });
+route('/turni/calendario',    lazy('../pages/shifts/calendar.js',      'mountShiftsCalendar'),     { requires: ['admin', 'manager'] });
+route('/turni/settimanale',   lazy('../pages/shifts/weekly.js',        'mountShiftsWeekly'),       { requires: ['admin', 'manager'] });
+route('/miei-turni',          lazy('../pages/shifts/my-shifts.js',     'mountMyShifts'),           { requires: 'auth' });
+route('/stipendi',            lazy('../pages/payroll/dashboard.js',    'mountPayrollDashboard'),   { requires: ['admin'] });
+route('/stipendi/:user_id',   lazy('../pages/payroll/user-detail.js',  'mountPayrollUserDetail'),  { requires: ['admin'] });
 route('/fatture',             lazy('../pages/invoices/list.js',        'mountInvoicesList'),       { requires: ['admin', 'manager'] });
 route('/fatture/nuova',       lazy('../pages/invoices/new.js',         'mountInvoiceNew'),         { requires: ['admin', 'manager'] });
 route('/fatture/da-pagare',   lazy('../pages/invoices/unpaid.js',      'mountInvoicesUnpaid'),     { requires: ['admin'] });

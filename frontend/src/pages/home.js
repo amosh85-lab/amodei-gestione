@@ -88,6 +88,21 @@ export function mountHome(container) {
               <span style="display: inline-flex; align-items: center; gap: var(--space-8);">${icon('bar-chart', { size: 20 })}<span>Food Cost</span></span>
               <span id="home-foodcost-pct" class="muted text-sm"></span>
             </button>
+            <button type="button" data-go="/turni" class="btn btn--ghost btn--lg full-width" style="justify-content: space-between;">
+              <span style="display: inline-flex; align-items: center; gap: var(--space-8);">${icon('clock', { size: 20 })}<span>Turni</span></span>
+              <span id="home-turni-today" class="muted text-sm"></span>
+            </button>
+            ${userHasRole('admin') ? `
+              <button type="button" data-go="/stipendi" class="btn btn--ghost btn--lg full-width" style="justify-content: space-between;">
+                <span style="display: inline-flex; align-items: center; gap: var(--space-8);">${icon('cash', { size: 20 })}<span>Stipendi</span></span>
+                <span id="home-stipendi-net" class="muted text-sm"></span>
+              </button>
+            ` : ''}
+          ` : ''}
+          ${user && user.role === 'staff' ? `
+            <button type="button" data-go="/miei-turni" class="btn btn--ghost btn--lg full-width">
+              ${icon('clock', { size: 20 })}<span>I miei turni</span>
+            </button>
           ` : ''}
         </div>
       </div>
@@ -120,6 +135,23 @@ export function mountHome(container) {
       const pctStr = op.pct_fiscal == null ? 'N/D' : `${Number(op.pct_fiscal).toFixed(1).replace('.', ',')}%`;
       slot.textContent = `${pctStr} ${dot}`.trim();
     }).catch(() => {});
+    // Total hours del giorno (turni di oggi)
+    const today = new Date().toISOString().slice(0, 10);
+    apiGet(`/work-shifts/by-date/${today}`).then((d) => {
+      const slot = container.querySelector('#home-turni-today');
+      if (!slot) return;
+      const total = Number(d.total_hours);
+      slot.textContent = total > 0 ? `${total % 1 === 0 ? total : total.toFixed(1)}h oggi` : 'Inserisci';
+    }).catch(() => {});
+    // Stipendio mese (admin only)
+    if (userHasRole('admin')) {
+      const now = new Date();
+      apiGet(`/work-shifts/monthly-payroll?year=${now.getFullYear()}&month=${now.getMonth() + 1}`).then((d) => {
+        const slot = container.querySelector('#home-stipendi-net');
+        if (!slot) return;
+        slot.textContent = `€ ${Number(d.totals.total_net).toFixed(2).replace('.', ',')} da consegnare`;
+      }).catch(() => {});
+    }
   }
 }
 

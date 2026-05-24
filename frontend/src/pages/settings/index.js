@@ -255,6 +255,20 @@ export async function mountSettings(container, _params, _query) {
             <span>Account attivo</span>
           </label>
         ` : ''}
+
+        <hr style="border: none; border-top: 1px solid var(--border-soft); margin: var(--space-8) 0;">
+        <p class="muted text-xs" style="margin: 0 0 var(--space-4) 0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">Compenso (admin)</p>
+        <p class="muted text-xs" style="margin: 0 0 var(--space-8) 0;">Visibile solo agli admin, usato per il calcolo dello stipendio mensile.</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8);">
+          <div>
+            <label class="label" for="u-rate" style="margin:0;">Tariffa €/h</label>
+            <input type="number" id="u-rate" class="input" step="0.01" min="0" placeholder="es. 10,00" value="${user?.hourly_rate != null ? Number(user.hourly_rate).toFixed(2) : ''}">
+          </div>
+          <div>
+            <label class="label" for="u-contract" style="margin:0;">Ore/sett. contratto</label>
+            <input type="number" id="u-contract" class="input" step="0.25" min="0" max="168" placeholder="es. 40" value="${user?.weekly_hours_contract != null ? Number(user.weekly_hours_contract) : ''}">
+          </div>
+        </div>
       </div>
     `;
     showModal(
@@ -272,15 +286,25 @@ export async function mountSettings(container, _params, _query) {
             const password = document.getElementById('u-password').value;
             if (!fullName || !role) { showToast('Nome e ruolo obbligatori', 'warn'); return; }
             try {
-              if (isNew) {
+              // Campi compenso (admin only)
+            const rateRaw = document.getElementById('u-rate').value.trim();
+            const contractRaw = document.getElementById('u-contract').value.trim();
+            const hourlyRate = rateRaw === '' ? null : parseFloat(rateRaw);
+            const weeklyHoursContract = contractRaw === '' ? null : parseFloat(contractRaw);
+            if (isNew) {
                 const email = document.getElementById('u-email').value.trim().toLowerCase();
                 if (!email) { showToast('Email obbligatoria', 'warn'); return; }
                 if (!password || password.length < 8) { showToast('Password min. 8 caratteri', 'warn'); return; }
-                await apiPost('/users', { email, full_name: fullName, role, password });
+                const payload = { email, full_name: fullName, role, password };
+                if (hourlyRate !== null) payload.hourly_rate = hourlyRate.toFixed(2);
+                if (weeklyHoursContract !== null) payload.weekly_hours_contract = weeklyHoursContract.toFixed(2);
+                await apiPost('/users', payload);
                 showToast('Utente creato', 'success');
               } else {
                 const active = document.getElementById('u-active').checked;
-                const body = { full_name: fullName, role, active };
+                const body = { full_name: fullName, role, active,
+                                hourly_rate: hourlyRate !== null ? hourlyRate.toFixed(2) : null,
+                                weekly_hours_contract: weeklyHoursContract !== null ? weeklyHoursContract.toFixed(2) : null };
                 if (password) {
                   if (password.length < 8) { showToast('Password min. 8 caratteri', 'warn'); return; }
                   body.password = password;

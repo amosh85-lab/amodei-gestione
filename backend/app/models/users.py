@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import enum
+from decimal import Decimal
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import AmodeiBase, TimestampMixin, pg_enum
@@ -25,3 +26,7 @@ class User(AmodeiBase, TimestampMixin):
     full_name: Mapped[str] = mapped_column(String(120), nullable=False)
     role: Mapped[UserRole] = mapped_column(pg_enum(UserRole, "user_role"), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    # PAYROLL — dati sensibili, esposti SOLO via UserOutAdmin (in /users router).
+    # Nessun altro endpoint deve includerli (anche su /auth/me).
+    hourly_rate: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
+    weekly_hours_contract: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
