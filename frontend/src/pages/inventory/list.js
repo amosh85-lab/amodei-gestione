@@ -28,6 +28,16 @@ export function mountInventoryList(container) {
     brand: true,
     actions: [
       {
+        label: 'Sprechi',
+        iconName: 'trash',
+        onClick: () => navigate('/report/sprechi'),
+      },
+      {
+        label: 'Margini',
+        iconName: 'bar-chart',
+        onClick: () => navigate('/report/margini'),
+      },
+      {
         label: 'Aggiorna',
         iconName: 'refresh-cw',
         onClick: () => refresh(),
