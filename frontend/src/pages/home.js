@@ -58,6 +58,9 @@ export function mountHome(container) {
         <p class="muted">Cosa vuoi fare oggi?</p>
 
         <div class="stack-12" style="margin-top: var(--space-8);">
+          <button type="button" data-go="/guida" class="btn btn--ghost full-width" style="border: 1px dashed var(--border-strong); justify-content: flex-start; padding: var(--space-12);">
+            ${icon('info', { size: 18 })}<span style="margin-left: var(--space-8);">Guida rapida per il tuo ruolo</span>
+          </button>
           <button type="button" data-go="/segnala" class="btn btn--secondary btn--lg full-width">
             ${icon('alert', { size: 20 })}<span>Segnala scorte</span>
           </button>

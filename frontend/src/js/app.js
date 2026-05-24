@@ -79,6 +79,7 @@ route('/turni/settimanale',   lazy('../pages/shifts/weekly.js',        'mountShi
 route('/miei-turni',          lazy('../pages/shifts/my-shifts.js',     'mountMyShifts'),           { requires: 'auth' });
 route('/stipendi',            lazy('../pages/payroll/dashboard.js',    'mountPayrollDashboard'),   { requires: ['admin'] });
 route('/stipendi/:user_id',   lazy('../pages/payroll/user-detail.js',  'mountPayrollUserDetail'),  { requires: ['admin'] });
+route('/guida',               lazy('../pages/guide.js',                'mountGuide'),              { requires: 'auth' });
 route('/fatture',             lazy('../pages/invoices/list.js',        'mountInvoicesList'),       { requires: ['admin', 'manager'] });
 route('/fatture/nuova',       lazy('../pages/invoices/new.js',         'mountInvoiceNew'),         { requires: ['admin', 'manager'] });
 route('/fatture/da-pagare',   lazy('../pages/invoices/unpaid.js',      'mountInvoicesUnpaid'),     { requires: ['admin'] });
