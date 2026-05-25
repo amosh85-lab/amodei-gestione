@@ -57,7 +57,12 @@ class BatchOut(BaseModel):
     supplier_id: int | None
     initial_qty: Decimal
     current_qty: Decimal
+    # NETTO unitario finale (post-sconto). Alimenta food cost & margini.
     purchase_price_unit: Decimal
+    # Listino unitario PRE-sconto (opzionale, per memoria storica).
+    list_price_unit: Decimal | None = None
+    # Sconto % applicato sul listino (opzionale, es. 15.00 = -15%).
+    discount_pct: Decimal | None = None
     load_date: date
     expiry_date: date | None
     receipt_photo_url: str | None

@@ -28,7 +28,9 @@ export async function mountInventoryLoad(container, _params, query) {
     product: null,             // { id, name, unit, ... }
     supplier: null,            // { id, name }
     initial_qty: '',
-    purchase_price_unit: '',
+    list_price_unit: '',       // listino pre-sconto (opzionale)
+    discount_pct: '',          // sconto % (opzionale, es. 15)
+    purchase_price_unit: '',   // netto unitario (obbligatorio, può essere auto-calcolato)
     expiry_date: '',
     notes: '',
     photo_file: null,          // File or null
@@ -344,30 +346,63 @@ export async function mountInventoryLoad(container, _params, query) {
     ]);
   }
 
-  // ------------------ Step 3: Qty + price ------------------
+  // ------------------ Step 3: Qty + price (con sconto) ------------------
   function stepQtyHtml() {
     const unit = state.product?.unit || '';
     return `
       <h3 class="card__title" style="margin:0;">Quantità e prezzo d'acquisto</h3>
-      <p class="muted text-sm">Inserisci la quantità che stai caricando e il prezzo d'acquisto unitario (IVA esclusa).</p>
+      <p class="muted text-sm">Inserisci quantità, prezzo di listino e sconto (se previsto). Il prezzo netto si calcola automaticamente. IVA esclusa.</p>
+      <div class="form-row">
+        <label class="label label--required" for="qty-input">Quantità (${escapeHtml(unit)})</label>
+        <input id="qty-input" class="input" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeAttr(state.initial_qty)}" required />
+      </div>
       <div class="grid-2">
         <div class="form-row">
-          <label class="label label--required" for="qty-input">Quantità (${escapeHtml(unit)})</label>
-          <input id="qty-input" class="input" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeAttr(state.initial_qty)}" required />
+          <label class="label" for="list-price-input">Prezzo listino €/${escapeHtml(unit)} <span class="muted text-xs">(opz.)</span></label>
+          <input id="list-price-input" class="input" type="number" min="0" step="0.0001" inputmode="decimal" value="${escapeAttr(state.list_price_unit)}" />
         </div>
         <div class="form-row">
-          <label class="label label--required" for="price-input">Prezzo unitario (€)</label>
-          <input id="price-input" class="input" type="number" min="0" step="0.0001" inputmode="decimal" value="${escapeAttr(state.purchase_price_unit)}" required />
+          <label class="label" for="discount-input">Sconto % <span class="muted text-xs">(opz.)</span></label>
+          <input id="discount-input" class="input" type="number" min="0" max="100" step="0.01" inputmode="decimal" value="${escapeAttr(state.discount_pct)}" />
         </div>
+      </div>
+      <div class="form-row">
+        <label class="label label--required" for="price-input">Prezzo NETTO unitario €/${escapeHtml(unit)}</label>
+        <input id="price-input" class="input" type="number" min="0" step="0.0001" inputmode="decimal" value="${escapeAttr(state.purchase_price_unit)}" required />
+        <p class="muted text-xs" id="price-hint" style="margin: var(--space-4) 0 0 0;"></p>
       </div>
     `;
   }
 
   function wireQty() {
     const qtyEl = container.querySelector('#qty-input');
+    const listEl = container.querySelector('#list-price-input');
+    const discEl = container.querySelector('#discount-input');
     const priceEl = container.querySelector('#price-input');
+    const hintEl  = container.querySelector('#price-hint');
+
     qtyEl.addEventListener('input', () => { state.initial_qty = qtyEl.value; });
-    priceEl.addEventListener('input', () => { state.purchase_price_unit = priceEl.value; });
+
+    function recomputeNet({ fromUser }) {
+      const list = parseFloat(state.list_price_unit);
+      const disc = parseFloat(state.discount_pct);
+      if (Number.isFinite(list) && list > 0 && Number.isFinite(disc) && disc >= 0 && disc <= 100) {
+        const net = list * (1 - disc / 100);
+        state.purchase_price_unit = net.toFixed(4);
+        priceEl.value = state.purchase_price_unit;
+        hintEl.textContent = `= € ${list.toFixed(4)} × (1 − ${disc.toFixed(2)}%) = € ${net.toFixed(4)}`;
+      } else if (!fromUser) {
+        hintEl.textContent = '';
+      }
+    }
+
+    listEl.addEventListener('input', () => { state.list_price_unit = listEl.value; recomputeNet({ fromUser: false }); });
+    discEl.addEventListener('input', () => { state.discount_pct = discEl.value; recomputeNet({ fromUser: false }); });
+    priceEl.addEventListener('input', () => {
+      state.purchase_price_unit = priceEl.value;
+      hintEl.textContent = '';
+    });
+    recomputeNet({ fromUser: false });
     qtyEl.focus();
   }
 
@@ -448,7 +483,9 @@ export async function mountInventoryLoad(container, _params, query) {
         ${recapRow('Prodotto', state.product?.name || '—')}
         ${recapRow('Fornitore', state.supplier?.name || '—')}
         ${recapRow('Quantità', `${state.initial_qty || '—'} ${unit}`)}
-        ${recapRow('Prezzo unitario', state.purchase_price_unit ? `€ ${state.purchase_price_unit}` : '—')}
+        ${state.list_price_unit ? recapRow('Listino', `€ ${state.list_price_unit}`) : ''}
+        ${state.discount_pct ? recapRow('Sconto', `${state.discount_pct}%`) : ''}
+        ${recapRow('Prezzo netto unitario', state.purchase_price_unit ? `€ ${state.purchase_price_unit}` : '—')}
         ${recapRow('Scadenza', state.expiry_date || 'nessuna')}
         ${recapRow('Foto', state.photo_file ? 'allegata' : 'nessuna')}
         ${state.notes ? recapRow('Note', state.notes) : ''}
@@ -472,6 +509,12 @@ export async function mountInventoryLoad(container, _params, query) {
     fd.append('product_id', String(state.product.id));
     fd.append('initial_qty', String(state.initial_qty));
     fd.append('purchase_price_unit', String(state.purchase_price_unit));
+    if (state.list_price_unit !== '' && state.list_price_unit != null) {
+      fd.append('list_price_unit', String(state.list_price_unit));
+    }
+    if (state.discount_pct !== '' && state.discount_pct != null) {
+      fd.append('discount_pct', String(state.discount_pct));
+    }
     if (state.supplier) fd.append('supplier_id', String(state.supplier.id));
     fd.append('load_date', new Date().toISOString().slice(0, 10));
     if (state.expiry_date) fd.append('expiry_date', state.expiry_date);

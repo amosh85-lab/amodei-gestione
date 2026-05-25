@@ -167,7 +167,12 @@ class Batch(AmodeiBase, TimestampMixin):
     )
     initial_qty: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     current_qty: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    # NETTO unitario (post-sconto). Alimenta food cost, margine, valorizzazione.
     purchase_price_unit: Mapped[Decimal] = mapped_column(Numeric(10, 4), nullable=False)
+    # Listino unitario PRE-sconto (opzionale).
+    list_price_unit: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)
+    # Sconto % applicato (es. 15.00). Opzionale, coerente con list/net.
+    discount_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     load_date: Mapped[date_type] = mapped_column(Date, nullable=False)
     expiry_date: Mapped[date_type | None] = mapped_column(Date, nullable=True)
     receipt_photo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
