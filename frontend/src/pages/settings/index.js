@@ -11,7 +11,7 @@ import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from '../../js/api.js'
 import { setHeader } from '../../js/app-shell.js';
 import { icon } from '../../js/icons.js';
 import { userHasRole } from '../../js/auth.js';
-import { showToast, showModal, confirmDialog, skeletonList } from '../../js/components.js';
+import { showToast, showModal, confirmDialog, skeletonList, parseNumberInput } from '../../js/components.js';
 import { openNumpad } from '../cash/modal-close-pos.js';
 
 export async function mountSettings(container, _params, _query) {
@@ -203,7 +203,7 @@ export async function mountSettings(container, _params, _query) {
 
     const fcSave = container.querySelector('#fc-save');
     if (fcSave) fcSave.addEventListener('click', async () => {
-      const v = parseFloat(container.querySelector('#fc-threshold').value);
+      const v = parseNumberInput(container.querySelector('#fc-threshold').value);
       if (Number.isNaN(v) || v < 0 || v > 100) { showToast('Valore non valido (0-100)', 'warn'); return; }
       try {
         await apiPatch('/settings/food_cost_threshold', { value: v.toFixed(2) });
@@ -289,8 +289,8 @@ export async function mountSettings(container, _params, _query) {
               // Campi compenso (admin only)
             const rateRaw = document.getElementById('u-rate').value.trim();
             const contractRaw = document.getElementById('u-contract').value.trim();
-            const hourlyRate = rateRaw === '' ? null : parseFloat(rateRaw);
-            const weeklyHoursContract = contractRaw === '' ? null : parseFloat(contractRaw);
+            const hourlyRate = rateRaw === '' ? null : parseNumberInput(rateRaw);
+            const weeklyHoursContract = contractRaw === '' ? null : parseNumberInput(contractRaw);
             if (isNew) {
                 const email = document.getElementById('u-email').value.trim().toLowerCase();
                 if (!email) { showToast('Email obbligatoria', 'warn'); return; }

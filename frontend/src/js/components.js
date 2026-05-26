@@ -42,6 +42,15 @@ const TOAST_VARIANT_CLASS = {
  * @param {number} [duration=3000] - ms before auto-dismiss; 0 = sticky
  * @returns {() => void} - function to dismiss the toast manually
  */
+
+/** Parse un input numerico utente che potrebbe usare ',' o '.' come separatore
+ *  decimale (iOS in italiano spesso ritorna '12,50' invece di '12.50').
+ *  Ritorna il numero parsato, o NaN se invalido. */
+export function parseNumberInput(value) {
+  if (value == null) return NaN;
+  return parseFloat(String(value).trim().replace(',', '.'));
+}
+
 export function showToast(message, type = 'info', duration = 3000, onClick = null) {
   const host = ensureToastHost();
   const el = document.createElement('div');

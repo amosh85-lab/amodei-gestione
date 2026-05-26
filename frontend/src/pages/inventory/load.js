@@ -4,7 +4,7 @@ import { apiGet, apiPost, apiUpload, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
-import { showToast, showModal, skeletonList } from '../../js/components.js';
+import { showToast, showModal, skeletonList, parseNumberInput } from '../../js/components.js';
 
 const STEPS = [
   { id: 1, title: 'Prodotto' },
@@ -384,8 +384,8 @@ export async function mountInventoryLoad(container, _params, query) {
     qtyEl.addEventListener('input', () => { state.initial_qty = qtyEl.value; });
 
     function recomputeNet({ fromUser }) {
-      const list = parseFloat(state.list_price_unit);
-      const disc = parseFloat(state.discount_pct);
+      const list = parseNumberInput(state.list_price_unit);
+      const disc = parseNumberInput(state.discount_pct);
       if (Number.isFinite(list) && list > 0 && Number.isFinite(disc) && disc >= 0 && disc <= 100) {
         const net = list * (1 - disc / 100);
         state.purchase_price_unit = net.toFixed(4);

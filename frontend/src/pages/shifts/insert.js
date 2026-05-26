@@ -9,7 +9,7 @@ import { apiGet, apiPost, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
-import { showToast, skeletonList } from '../../js/components.js';
+import { showToast, skeletonList, parseNumberInput } from '../../js/components.js';
 
 export async function mountShiftsInsert(container, _params, query) {
   setHeader({
@@ -180,7 +180,7 @@ export async function mountShiftsInsert(container, _params, query) {
     container.querySelectorAll('[data-hours-idx]').forEach((inp) => {
       inp.addEventListener('input', (e) => {
         const idx = Number(e.target.dataset.hoursIdx);
-        const v = parseFloat(e.target.value);
+        const v = parseNumberInput(e.target.value);
         state.rows[idx].hours = Number.isFinite(v) ? Math.max(0, Math.min(12, v)) : 0;
       });
     });

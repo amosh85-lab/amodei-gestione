@@ -7,7 +7,7 @@ import { apiGet, apiUpload, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
-import { showToast, skeletonList } from '../../js/components.js';
+import { showToast, skeletonList, parseNumberInput } from '../../js/components.js';
 
 const CAT_LABEL = { food: '🍖 Food', beverage: '🍷 Beverage', consumo: '🧴 Consumo' };
 
@@ -97,10 +97,10 @@ export async function mountInvoiceNew(container, _params, _query) {
     const supId = document.getElementById('inv-supplier').value;
     const num = document.getElementById('inv-number').value.trim();
     const dt = document.getElementById('inv-date').value;
-    const amount = parseFloat(document.getElementById('inv-amount').value);
+    const amount = parseNumberInput(document.getElementById('inv-amount').value);
     const notes = document.getElementById('inv-notes').value.trim();
-    if (!supId || !num || !dt || !amount || amount <= 0) {
-      showToast('Compila tutti i campi obbligatori', 'warn'); return;
+    if (!supId || !num || !dt || !Number.isFinite(amount) || amount <= 0) {
+      showToast('Compila tutti i campi obbligatori (prezzo valido es. 12.50)', 'warn'); return;
     }
     const fd = new FormData();
     fd.append('supplier_id', supId);
