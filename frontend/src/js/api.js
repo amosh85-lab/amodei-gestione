@@ -39,7 +39,7 @@ export class ApiError extends Error {
 async function request(
   method,
   path,
-  { body, timeoutMs = 15000, isFormData = false, auth = true } = {},
+  { body, timeoutMs = 60000, isFormData = false, auth = true } = {},
 ) {
   const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
   const controller = new AbortController();
@@ -98,7 +98,8 @@ export const apiDelete = (path, opts) => request('DELETE', path, opts);
 
 /** Multipart upload: pass a FormData. Returns parsed JSON. */
 export function apiUpload(path, formData, opts = {}) {
-  return request('POST', path, { ...opts, body: formData, isFormData: true });
+  // Upload multipart (foto): timeout più lungo per coprire connessioni lente.
+  return request('POST', path, { timeoutMs: 120000, ...opts, body: formData, isFormData: true });
 }
 
 /** Absolute URL for a server-relative path (used by <img src> on /uploads/*). */
