@@ -1,12 +1,15 @@
 """Pydantic schemas for /work-shifts."""
 from __future__ import annotations
 
-from datetime import date as date_type, datetime
+from datetime import date as date_type, datetime, time as time_type
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.users import UserMini
+
+ServiceLiteral = Literal["lunch", "dinner"]
 
 
 def _validate_quarter_hour(v: Decimal | None) -> Decimal | None:
@@ -22,9 +25,11 @@ def _validate_quarter_hour(v: Decimal | None) -> Decimal | None:
 
 
 class WorkShiftCreate(BaseModel):
-    """Singolo turno (manager/admin)."""
+    """Singolo turno (manager/admin). service + start_time obbligatori."""
     date: date_type
     user_id: int = Field(gt=0)
+    service: ServiceLiteral
+    start_time: time_type
     hours: Decimal
     notes: str | None = None
 
@@ -36,6 +41,8 @@ class WorkShiftCreate(BaseModel):
 
 class WorkShiftBulkItem(BaseModel):
     user_id: int = Field(gt=0)
+    service: ServiceLiteral
+    start_time: time_type
     hours: Decimal
     notes: str | None = None
 
@@ -46,12 +53,13 @@ class WorkShiftBulkItem(BaseModel):
 
 
 class WorkShiftBulkCreate(BaseModel):
-    """Inserimento giornaliero multiplo. Upsert per (date, user_id)."""
+    """Inserimento giornaliero multiplo. Upsert per (date, user_id, service)."""
     date: date_type
     shifts: list[WorkShiftBulkItem] = Field(min_length=1)
 
 
 class WorkShiftUpdate(BaseModel):
+    start_time: time_type | None = None
     hours: Decimal | None = None
     notes: str | None = None
 
@@ -66,6 +74,8 @@ class WorkShiftOut(BaseModel):
     id: int
     date: date_type
     user: UserMini
+    service: ServiceLiteral
+    start_time: time_type
     hours: Decimal
     notes: str | None = None
     created_by: UserMini

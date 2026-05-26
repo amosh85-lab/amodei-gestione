@@ -1,13 +1,12 @@
-"""Work shifts: ore lavorate per dipendente per giorno.
+"""Work shifts: ore lavorate per dipendente per giorno, divise per servizio.
 
-Regola "solo chi ha lavorato": una riga `work_shifts` esiste solo per
-chi ha effettivamente lavorato quel giorno. Assenza = 0 ore (non c'è
-un'esplicita "marca assente"). I calcoli mensili sommano semplicemente
-le righe esistenti.
+Una riga = un turno (date, user_id, service) con start_time e durata
+in ore. Un dipendente può fare 2 turni nello stesso giorno (pranzo +
+cena) → 2 righe separate.
 """
 from __future__ import annotations
 
-from datetime import date as date_type, datetime
+from datetime import date as date_type, datetime, time as time_type
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -19,11 +18,12 @@ from sqlalchemy import (
     Index,
     Numeric,
     Text,
+    Time,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import AmodeiBase, TimestampMixin
+from app.models.base import AmodeiBase, SERVICE_KIND_ENUM, ServiceKind, TimestampMixin
 
 
 class WorkShift(AmodeiBase, TimestampMixin):
@@ -36,6 +36,8 @@ class WorkShift(AmodeiBase, TimestampMixin):
         nullable=False,
         index=True,
     )
+    service: Mapped[ServiceKind] = mapped_column(SERVICE_KIND_ENUM, nullable=False)
+    start_time: Mapped[time_type] = mapped_column(Time, nullable=False)
     hours: Mapped[Decimal] = mapped_column(Numeric(4, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by_user_id: Mapped[int] = mapped_column(
@@ -51,7 +53,8 @@ class WorkShift(AmodeiBase, TimestampMixin):
     user = relationship("User", foreign_keys=[user_id])
 
     __table_args__ = (
-        UniqueConstraint("date", "user_id", name="uq_work_shifts_date_user"),
+        # Una persona può avere al massimo UN turno per servizio per giorno.
+        UniqueConstraint("date", "user_id", "service", name="uq_work_shifts_date_user_service"),
         # hours valido: 0 < h ≤ 12. La regola "multiplo di 0.25" è
         # validata lato Pydantic per evitare MOD() su NUMERIC che è poco
         # portabile e meno chiara da diagnosticare in caso di errore.

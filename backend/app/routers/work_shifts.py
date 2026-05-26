@@ -20,6 +20,7 @@ from app.database import get_session
 from app.dependencies.auth import (
     get_current_user, require_admin, require_manager_or_admin,
 )
+from app.models.base import ServiceKind
 from app.models.users import User, UserRole
 from app.models.work_shifts import WorkShift
 from app.schemas.users import UserMini
@@ -55,8 +56,10 @@ def _hydrate(ws: WorkShift, session: Session) -> WorkShiftOut:
     user = session.get(User, ws.user_id)
     created_by = session.get(User, ws.created_by_user_id)
     return WorkShiftOut(
-        id=ws.id, date=ws.date, user=user, hours=ws.hours,
-        notes=ws.notes, created_by=created_by,
+        id=ws.id, date=ws.date, user=user,
+        service=ws.service.value if hasattr(ws.service, "value") else ws.service,
+        start_time=ws.start_time,
+        hours=ws.hours, notes=ws.notes, created_by=created_by,
         created_at=ws.created_at, updated_at=ws.updated_at,
     )
 
@@ -84,24 +87,28 @@ def create_shift(
     actor: User = Depends(require_manager_or_admin),
 ) -> WorkShiftOut:
     _validate_target_user(session, payload.user_id)
-    # Unicità (date, user_id)
+    service_enum = ServiceKind(payload.service)
+    # Unicità (date, user_id, service)
     existing = session.scalar(
         select(WorkShift)
-        .where(WorkShift.date == payload.date, WorkShift.user_id == payload.user_id)
+        .where(WorkShift.date == payload.date)
+        .where(WorkShift.user_id == payload.user_id)
+        .where(WorkShift.service == service_enum)
     )
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT,
-                            f"Esiste già un turno per questo dipendente il {payload.date}. Usa PATCH per modificarlo.")
+                            f"Esiste già un turno {payload.service} per questo dipendente il {payload.date}. Usa PATCH per modificarlo.")
     ws = WorkShift(
         date=payload.date, user_id=payload.user_id,
+        service=service_enum, start_time=payload.start_time,
         hours=payload.hours, notes=payload.notes,
         created_by_user_id=actor.id,
     )
     session.add(ws)
     session.commit()
     session.refresh(ws)
-    logger.info("Shift created: id=%d date=%s user=%d hours=%s by=%d",
-                ws.id, ws.date, ws.user_id, ws.hours, actor.id)
+    logger.info("Shift created: id=%d date=%s user=%d service=%s start=%s hours=%s by=%d",
+                ws.id, ws.date, ws.user_id, payload.service, ws.start_time, ws.hours, actor.id)
     return _hydrate(ws, session)
 
 
@@ -115,13 +122,15 @@ def bulk_upsert_shifts(
     session: Session = Depends(get_session),
     actor: User = Depends(require_manager_or_admin),
 ) -> list[WorkShiftOut]:
-    # Pre-valida tutti i target user e raccoglie quelli esistenti
-    target_ids = [item.user_id for item in payload.shifts]
+    # Pre-valida tutti i target user (lo stesso user_id può comparire più volte
+    # con service diversi: lunch + dinner).
+    target_ids = list({item.user_id for item in payload.shifts})
     for uid in target_ids:
         _validate_target_user(session, uid)
 
+    # Chiave esistente: (user_id, service)
     existing = {
-        ws.user_id: ws for ws in session.scalars(
+        (ws.user_id, ws.service): ws for ws in session.scalars(
             select(WorkShift)
             .where(WorkShift.date == payload.date)
             .where(WorkShift.user_id.in_(target_ids))
@@ -129,15 +138,18 @@ def bulk_upsert_shifts(
     }
     results: list[WorkShift] = []
     for item in payload.shifts:
-        ws = existing.get(item.user_id)
+        service_enum = ServiceKind(item.service)
+        ws = existing.get((item.user_id, service_enum))
         if ws is None:
             ws = WorkShift(
                 date=payload.date, user_id=item.user_id,
+                service=service_enum, start_time=item.start_time,
                 hours=item.hours, notes=item.notes,
                 created_by_user_id=actor.id,
             )
             session.add(ws)
         else:
+            ws.start_time = item.start_time
             ws.hours = item.hours
             ws.notes = item.notes
         results.append(ws)
@@ -350,6 +362,8 @@ def update_shift(
             raise HTTPException(status.HTTP_403_FORBIDDEN,
                                 "Il manager può modificare turni degli ultimi 7 giorni.")
     changes = payload.model_dump(exclude_unset=True)
+    if "start_time" in changes and changes["start_time"] is not None:
+        ws.start_time = changes["start_time"]
     if "hours" in changes and changes["hours"] is not None:
         ws.hours = changes["hours"]
     if "notes" in changes:

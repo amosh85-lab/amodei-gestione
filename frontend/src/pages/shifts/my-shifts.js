@@ -55,13 +55,17 @@ export async function mountMyShifts(container, _params, query) {
   }
 
   function renderRow(sh, i) {
+    const svc = sh.service === 'lunch' ? 'Pranzo' : (sh.service === 'dinner' ? 'Cena' : '');
+    const start = sh.start_time ? sh.start_time.slice(0, 5) : '';
+    const meta = [svc, start && `dalle ${start}`].filter(Boolean).join(' · ');
     return `
       <div style="padding: var(--space-12) var(--space-16); ${i > 0 ? 'border-top: 1px solid var(--border-soft);' : ''}">
         <div style="display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-8);">
           <span style="font-weight: 500;">${formatDate(sh.date)}</span>
           <span style="font-family: var(--font-display); font-size: 1.2rem;">${formatHours(sh.hours)}h</span>
         </div>
-        ${sh.notes ? `<p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">${escapeHtml(sh.notes)}</p>` : ''}
+        ${meta ? `<p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">${escapeHtml(meta)}</p>` : ''}
+        ${sh.notes ? `<p class="muted text-xs" style="margin: var(--space-4) 0 0 0; font-style: italic;">${escapeHtml(sh.notes)}</p>` : ''}
       </div>
     `;
   }
