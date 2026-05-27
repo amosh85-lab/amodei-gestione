@@ -58,7 +58,8 @@ function mountAdminHome(container, user) {
       </div>
     </div>
 
-    <!-- CARD INCASSO (overlapping hero) -->
+    <!-- CARD INCASSO (overlapping hero) — solo admin -->
+    ${isAdmin ? `
     <div style="max-width: 480px; margin: -36px auto 0 auto; padding: 0 20px;">
       <div id="home-incasso" style="background: var(--off-white); border-radius: 16px; box-shadow: 0 4px 24px rgba(42,31,26,0.10); padding: 20px;">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -85,6 +86,7 @@ function mountAdminHome(container, user) {
         </div>
       </div>
     </div>
+    ` : ''}
 
     <div style="max-width: 480px; margin: 0 auto; padding: 0 20px;">
 
@@ -135,7 +137,7 @@ function mountAdminHome(container, user) {
   });
 
   // Async data loading
-  loadIncassoCard();
+  if (isAdmin) loadIncassoCard();
   loadNotifications(container);
 
   // Restore header when leaving
@@ -332,56 +334,73 @@ function tile(label, iconName, href, color) {
 }
 
 // =====================================================================
-// STAFF HOME (kept simple)
+// STAFF HOME
 // =====================================================================
 
 function mountStaffHome(container, user) {
-  setHeader({
-    title: 'Amodei',
-    brand: true,
-    actions: [{
-      label: 'Esci', iconName: 'logout',
-      onClick: async () => {
-        const ok = await confirmDialog('Vuoi uscire?', 'Tornerai alla schermata di accesso.', { confirmLabel: 'Esci', cancelLabel: 'Annulla', danger: true });
-        if (ok) logout();
-      },
-    }],
-  });
+  const headerEl = document.getElementById('app-header');
+  if (headerEl) headerEl.style.display = 'none';
 
-  const greeting = user ? `Ciao ${esc(user.full_name || user.email)}` : 'Ciao';
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 14 ? 'Buongiorno' : 'Buonasera';
+  const firstName = (user?.full_name || user?.email || '').split(' ')[0];
+  const dateLabel = now.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
 
   container.innerHTML = `
-    <section class="container container--narrow" style="padding-block: var(--space-32); padding-bottom: 100px;">
-      <div class="card card--elevated stack-16">
-        <h2 class="font-display text-2xl" style="margin:0">${greeting}</h2>
-        <p class="muted">Cosa vuoi fare oggi?</p>
-        <div class="stack-12" style="margin-top: var(--space-8);">
-          <button type="button" data-go="/segnala" class="btn btn--secondary btn--lg full-width">
-            ${icon('alert', { size: 20 })}<span>Segnala scorte</span>
-          </button>
-          <button type="button" data-go="/magazzino" class="btn btn--primary btn--lg full-width">
-            ${icon('inventory', { size: 20 })}<span>Apri Magazzino</span>
-          </button>
-          <button type="button" data-go="/magazzino/carico" class="btn btn--secondary btn--lg full-width">
-            ${icon('plus', { size: 20 })}<span>Carica un lotto</span>
-          </button>
-          <button type="button" data-go="/chiusura-serale" class="btn btn--secondary btn--lg full-width">
-            ${icon('clock', { size: 20 })}<span>Chiusura serale</span>
-          </button>
-          <button type="button" data-go="/pasti-staff" class="btn btn--ghost btn--lg full-width">
-            ${icon('cash', { size: 20 })}<span>Pasti staff</span>
-          </button>
-          <button type="button" data-go="/miei-turni" class="btn btn--ghost btn--lg full-width">
-            ${icon('clock', { size: 20 })}<span>I miei turni</span>
-          </button>
-        </div>
+    <!-- HERO HEADER -->
+    <div style="background: var(--terracotta); color: var(--off-white); padding: 40px 20px 36px 20px;">
+      <div style="max-width: 480px; margin: 0 auto;">
+        <p style="margin:0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8; color: inherit;">${esc(dateLabel)}</p>
+        <h1 style="margin: 12px 0 0 0; font-family: var(--font-display); font-style: italic; font-size: 2.2rem; font-weight: 600; line-height: 1.15; color: inherit;">
+          ${esc(greeting)},<br>${esc(firstName)}
+        </h1>
       </div>
-    </section>
+    </div>
+
+    <div style="max-width: 480px; margin: 0 auto; padding: 0 20px;">
+
+      <!-- DA GESTIRE (staff vede solo le proprie notifiche) -->
+      <div id="home-notifications" style="margin-top: 28px;"></div>
+
+      <!-- MENU OPERATIVO -->
+      <p style="margin: 28px 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Operativo</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        ${tile('Segnala scorte', 'alert',     '/segnala',           '#B5391F')}
+        ${tile('Magazzino',      'inventory', '/magazzino',         '#3D5A3D')}
+        ${tile('Carica lotto',   'plus',      '/magazzino/carico',  '#B5391F')}
+        ${tile('Chiusura serale','clock',     '/chiusura-serale',   '#6a4c93')}
+      </div>
+
+      <p style="margin: 24px 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Personale</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+        ${tile('I miei turni', 'clock', '/miei-turni', '#6a4c93')}
+        ${tile('Pasti staff',  'cash',  '/pasti-staff', '#8B6A2E')}
+      </div>
+
+      <!-- ESCI -->
+      <div style="text-align: center; padding: 20px 0 100px 0;">
+        <button type="button" id="home-logout" style="background: none; border: none; cursor: pointer; font-size: 13px; color: var(--ink-muted); opacity: 0.7;">
+          ${icon('logout', { size: 16 })} <span style="margin-left: 4px;">Esci</span>
+        </button>
+      </div>
+    </div>
   `;
 
   container.querySelectorAll('[data-go]').forEach((b) => {
     b.addEventListener('click', () => navigate(b.dataset.go));
   });
+  container.querySelector('#home-logout')?.addEventListener('click', async () => {
+    const ok = await confirmDialog('Vuoi uscire?', 'Tornerai alla schermata di accesso.', { confirmLabel: 'Esci', cancelLabel: 'Annulla', danger: true });
+    if (ok) logout();
+  });
+
+  // Staff notifications (alerts they can see)
+  loadNotifications(container);
+
+  return () => {
+    if (headerEl) headerEl.style.display = '';
+  };
 }
 
 // =====================================================================
