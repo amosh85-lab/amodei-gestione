@@ -57,6 +57,8 @@ export function mountHome(container) {
         <h2 class="font-display text-2xl" style="margin:0">${greeting} ${roleBadge}</h2>
         <p class="muted">Cosa vuoi fare oggi?</p>
 
+        ${userHasRole('admin') ? '<div id="home-revenue-kpi" style="margin-top: var(--space-8);"></div>' : ''}
+
         <div class="stack-12" style="margin-top: var(--space-8);">
           <button type="button" data-go="/guida" class="btn btn--ghost full-width" style="border: 1px dashed var(--border-strong); justify-content: flex-start; padding: var(--space-12);">
             ${icon('info', { size: 18 })}<span style="margin-left: var(--space-8);">Guida rapida per il tuo ruolo</span>
@@ -154,8 +156,131 @@ export function mountHome(container) {
         if (!slot) return;
         slot.textContent = `€ ${Number(d.totals.total_net).toFixed(2).replace('.', ',')} da consegnare`;
       }).catch(() => {});
+
+      // Revenue KPI card
+      loadRevenueKpi(container);
     }
   }
+}
+
+async function loadRevenueKpi(container) {
+  const slot = container.querySelector('#home-revenue-kpi');
+  if (!slot) return;
+
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(from.getDate() - 40);
+  const fromStr = from.toISOString().slice(0, 10);
+  const toStr = today.toISOString().slice(0, 10);
+
+  let summaries;
+  try {
+    summaries = await apiGet(`/daily-summary?from=${fromStr}&to=${toStr}&limit=60`);
+  } catch { return; }
+
+  const byDate = new Map();
+  for (const s of summaries) {
+    if (s.computed_total != null) byDate.set(s.date, Number(s.computed_total));
+  }
+
+  if (byDate.size === 0) return;
+
+  // --- Ultimo incasso ---
+  const sortedDates = [...byDate.keys()].sort().reverse();
+  const lastDate = sortedDates[0];
+  const lastAmount = byDate.get(lastDate);
+
+  // --- Stesso giorno settimana scorsa ---
+  const lastDateObj = new Date(lastDate);
+  const sameWeekdayObj = new Date(lastDateObj);
+  sameWeekdayObj.setDate(sameWeekdayObj.getDate() - 7);
+  const sameWeekdayStr = sameWeekdayObj.toISOString().slice(0, 10);
+  const sameWeekdayAmount = byDate.get(sameWeekdayStr);
+
+  // --- Media settimanale corrente vs scorsa ---
+  const mondayOf = (d) => { const m = new Date(d); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); return m; };
+  const thisMonday = mondayOf(today);
+  const lastMonday = new Date(thisMonday); lastMonday.setDate(lastMonday.getDate() - 7);
+  const lastSunday = new Date(thisMonday); lastSunday.setDate(lastSunday.getDate() - 1);
+
+  const weekValues = (start, end) => {
+    const vals = [];
+    const d = new Date(start);
+    while (d <= end) {
+      const k = d.toISOString().slice(0, 10);
+      if (byDate.has(k)) vals.push(byDate.get(k));
+      d.setDate(d.getDate() + 1);
+    }
+    return vals;
+  };
+
+  const thisWeekVals = weekValues(thisMonday, today);
+  const lastWeekVals = weekValues(lastMonday, lastSunday);
+  const thisWeekAvg = thisWeekVals.length > 0 ? thisWeekVals.reduce((a, b) => a + b, 0) / thisWeekVals.length : null;
+  const lastWeekAvg = lastWeekVals.length > 0 ? lastWeekVals.reduce((a, b) => a + b, 0) / lastWeekVals.length : null;
+
+  // --- Proiezione mensile vs mese scorso ---
+  const thisYear = today.getFullYear();
+  const thisMonth = today.getMonth();
+  const daysInThisMonth = new Date(thisYear, thisMonth + 1, 0).getDate();
+
+  const monthValues = (year, month) => {
+    const vals = [];
+    const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+    for (const [k, v] of byDate) {
+      if (k.startsWith(prefix)) vals.push(v);
+    }
+    return vals;
+  };
+
+  const thisMonthVals = monthValues(thisYear, thisMonth);
+  const thisMonthTotal = thisMonthVals.reduce((a, b) => a + b, 0);
+  const thisMonthDays = thisMonthVals.length;
+  const projectedMonth = thisMonthDays > 0 ? (thisMonthTotal / thisMonthDays) * daysInThisMonth : null;
+
+  const lastMonthDate = new Date(thisYear, thisMonth - 1, 1);
+  const lastMonthVals = monthValues(lastMonthDate.getFullYear(), lastMonthDate.getMonth());
+  const lastMonthTotal = lastMonthVals.reduce((a, b) => a + b, 0);
+
+  // --- Render ---
+  const fmt = (v) => v == null ? '—' : `€ ${v.toFixed(2).replace('.', ',')}`;
+  const diffHtml = (current, previous, label) => {
+    if (current == null || previous == null || previous === 0) return `<p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">${label}: dati insufficienti</p>`;
+    const diff = current - previous;
+    const pct = (diff / previous) * 100;
+    const sign = diff >= 0 ? '+' : '';
+    const color = diff >= 0 ? 'var(--bottle-green, #4f8e3a)' : 'var(--terracotta-dark)';
+    const arrow = diff >= 0 ? '▲' : '▼';
+    return `<p style="margin: var(--space-4) 0 0 0; font-size: var(--text-xs); color: ${color};">
+      ${arrow} ${sign}${fmt(diff)} (${sign}${pct.toFixed(1).replace('.', ',')}%) <span class="muted" style="color: var(--ink-muted);">vs ${label}</span>
+    </p>`;
+  };
+
+  const lastDateLabel = new Date(lastDate).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  slot.innerHTML = `
+    <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-12); background: var(--ink); color: var(--off-white); border-radius: var(--radius-xl);">
+      <p class="text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); opacity: 0.7; color: inherit;">Ultimo incasso · ${escapeHtml(lastDateLabel)}</p>
+      <p class="font-display" style="margin: var(--space-4) 0 0 0; font-size: 2.5rem; line-height: 1; color: inherit;">${fmt(lastAmount)}</p>
+      ${diffHtml(lastAmount, sameWeekdayAmount, 'stesso giorno sett. scorsa')}
+
+      <div style="margin-top: var(--space-16); padding-top: var(--space-12); border-top: 1px solid rgba(255,255,255,0.15);">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; color: inherit;">
+          <span class="text-sm" style="color: inherit; opacity: 0.85;">Media giornaliera sett.</span>
+          <span class="font-display text-lg" style="color: inherit;">${fmt(thisWeekAvg)}</span>
+        </div>
+        ${diffHtml(thisWeekAvg, lastWeekAvg, 'sett. precedente')}
+      </div>
+
+      <div style="margin-top: var(--space-12); padding-top: var(--space-12); border-top: 1px solid rgba(255,255,255,0.15);">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; color: inherit;">
+          <span class="text-sm" style="color: inherit; opacity: 0.85;">Proiezione mese</span>
+          <span class="font-display text-lg" style="color: inherit;">${fmt(projectedMonth)}</span>
+        </div>
+        ${diffHtml(projectedMonth, lastMonthTotal > 0 ? lastMonthTotal : null, 'mese scorso (€ ' + fmt(lastMonthTotal).replace('€ ', '') + ')')}
+      </div>
+    </div>
+  `;
 }
 
 function escapeHtml(s) {
