@@ -259,7 +259,12 @@ export async function mountInventoryDetail(container, params) {
     }, 0);
   }
 
-  function openEditModal(p) {
+  async function openEditModal(p) {
+    let suppliers = [];
+    try { suppliers = await apiGet('/suppliers'); } catch { /* ignore */ }
+    const supplierOpts = suppliers.map((s) =>
+      `<option value="${s.id}" ${s.id === p.preferred_supplier_id ? 'selected' : ''}>${escapeHtml(s.name)}</option>`
+    ).join('');
     const body = `
       <form id="edit-form" class="stack-12">
         <div class="form-row">
@@ -275,6 +280,13 @@ export async function mountInventoryDetail(container, params) {
             <label class="label" for="ed-unit">Unità</label>
             <input id="ed-unit" class="input" value="${escapeAttr(p.unit)}" required maxlength="32" />
           </div>
+        </div>
+        <div class="form-row">
+          <label class="label" for="ed-supplier">Fornitore di riferimento</label>
+          <select id="ed-supplier" class="select">
+            <option value="">— nessuno —</option>
+            ${supplierOpts}
+          </select>
         </div>
         <div class="grid-2">
           <div class="form-row">
@@ -298,10 +310,12 @@ export async function mountInventoryDetail(container, params) {
     closeFn = showModal('Modifica prodotto', body, [
       { label: 'Annulla', variant: 'ghost' },
       { label: 'Salva', variant: 'primary', closeOnClick: false, onClick: async () => {
+        const supplierVal = document.getElementById('ed-supplier').value;
         const payload = {
           name: document.getElementById('ed-name').value.trim(),
           category: document.getElementById('ed-cat').value.trim() || null,
           unit: document.getElementById('ed-unit').value.trim(),
+          preferred_supplier_id: supplierVal ? Number(supplierVal) : null,
           sale_price: document.getElementById('ed-price').value || null,
           min_stock: document.getElementById('ed-min').value || '0',
           vat_rate: document.getElementById('ed-vat').value,
