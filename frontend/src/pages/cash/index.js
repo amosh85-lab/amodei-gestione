@@ -109,7 +109,15 @@ export async function mountCashPage(container, _params, query) {
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 96px;">
         ${pastBanner}
         ${overnightBanner}
-        <p class="muted text-sm" style="margin: 0 0 var(--space-12) 0; text-transform: capitalize;">${escapeHtml(dateLabel)}</p>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-12);">
+          <button type="button" id="date-prev" class="btn btn--ghost btn--icon" aria-label="Giorno precedente">${icon('chevron-left', { size: 22 })}</button>
+          <button type="button" id="date-pick" style="background: none; border: none; cursor: pointer; padding: var(--space-4) var(--space-12);">
+            <p style="margin:0; font-family: var(--font-display); font-size: var(--text-lg); text-transform: capitalize; font-weight: 500;">${escapeHtml(dateLabel)}</p>
+          </button>
+          <button type="button" id="date-next" class="btn btn--ghost btn--icon" aria-label="Giorno successivo" ${isToday ? 'disabled' : ''}>${icon('chevron-right', { size: 22 })}</button>
+        </div>
+        <input type="date" id="date-input" style="display:none;" value="${state.date}" max="${businessDayIso()}" />
 
         ${renderTabs()}
 
@@ -396,6 +404,34 @@ export async function mountCashPage(container, _params, query) {
   // -----------------------------------------------------------------
 
   function wire() {
+    // Date navigation
+    container.querySelector('#date-prev')?.addEventListener('click', () => {
+      const d = new Date(state.date);
+      d.setDate(d.getDate() - 1);
+      navigate(`/cassa?date=${d.toISOString().slice(0, 10)}&tab=${state.tab}`, { replace: true });
+    });
+    container.querySelector('#date-next')?.addEventListener('click', () => {
+      const d = new Date(state.date);
+      d.setDate(d.getDate() + 1);
+      const target = d.toISOString().slice(0, 10);
+      if (target <= businessDayIso()) {
+        navigate(`/cassa?date=${target}&tab=${state.tab}`, { replace: true });
+      }
+    });
+    const dateInput = container.querySelector('#date-input');
+    container.querySelector('#date-pick')?.addEventListener('click', () => {
+      dateInput.showPicker?.() || dateInput.click();
+    });
+    dateInput?.addEventListener('change', () => {
+      if (dateInput.value && dateInput.value <= businessDayIso()) {
+        navigate(`/cassa?date=${dateInput.value}&tab=${state.tab}`, { replace: true });
+      }
+    });
+    container.querySelector('[data-back-today]')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigate('/cassa', { replace: true });
+    });
+
     container.querySelectorAll('[data-tab]').forEach((b) => {
       b.addEventListener('click', () => {
         state.tab = b.dataset.tab;
