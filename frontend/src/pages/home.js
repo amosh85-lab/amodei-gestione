@@ -1,6 +1,4 @@
-// / (Home) — landing page once authenticated.
-// Light dashboard with shortcuts. For admin/manager the Riordini card
-// shows a live alert-badge counting open StockAlerts.
+// / (Home) — redesigned dashboard for admin/manager, simple for staff.
 
 import { getCurrentUser, logout, userHasRole } from '../js/auth.js';
 import { setHeader } from '../js/app-shell.js';
@@ -8,16 +6,12 @@ import { navigate } from '../js/router.js';
 import { icon } from '../js/icons.js';
 import { confirmDialog } from '../js/components.js';
 import { apiGet } from '../js/api.js';
-import { alertBadge } from '../components/alert-badge.js';
 import { isOnboardingSkipped } from './onboarding/welcome.js';
 
 export function mountHome(container) {
   const user = getCurrentUser();
   const isAdminOrManager = userHasRole('admin', 'manager');
 
-  // First-run onboarding: admin sees the wizard when the DB looks empty.
-  // Heuristic: 0 products AND 0 suppliers. Skippable; skip is sticky in
-  // localStorage so we don't pester the admin if they postpone.
   if (userHasRole('admin') && !isOnboardingSkipped()) {
     Promise.all([
       apiGet('/products?limit=1').catch(() => []),
@@ -29,40 +23,339 @@ export function mountHome(container) {
     });
   }
 
+  if (isAdminOrManager) {
+    mountAdminHome(container, user);
+  } else {
+    mountStaffHome(container, user);
+  }
+}
+
+// =====================================================================
+// ADMIN / MANAGER HOME
+// =====================================================================
+
+function mountAdminHome(container, user) {
+  // Hide the default app header — the hero replaces it
+  const headerEl = document.getElementById('app-header');
+  if (headerEl) headerEl.style.display = 'none';
+
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 14 ? 'Buongiorno' : 'Buonasera';
+  const firstName = (user?.full_name || user?.email || '').split(' ')[0];
+  const dateLabel = now.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
+
+  const isAdmin = userHasRole('admin');
+
+  container.innerHTML = `
+    <!-- HERO HEADER -->
+    <div style="background: var(--terracotta); color: var(--off-white); padding: 40px 20px 60px 20px;">
+      <div style="max-width: 480px; margin: 0 auto;">
+        <p style="margin:0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8; color: inherit;">${esc(dateLabel)}</p>
+        <h1 style="margin: 12px 0 0 0; font-family: var(--font-display); font-style: italic; font-size: 2.2rem; font-weight: 600; line-height: 1.15; color: inherit;">
+          ${esc(greeting)},<br>${esc(firstName)}
+        </h1>
+      </div>
+    </div>
+
+    <!-- CARD INCASSO (overlapping hero) -->
+    <div style="max-width: 480px; margin: -36px auto 0 auto; padding: 0 20px;">
+      <div id="home-incasso" style="background: var(--off-white); border-radius: 16px; box-shadow: 0 4px 24px rgba(42,31,26,0.10); padding: 20px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width:8px; height:8px; border-radius:50%; background: var(--bottle-green); flex-shrink:0;"></span>
+          <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Incasso di oggi</span>
+        </div>
+        <p id="incasso-amount" class="font-display" style="margin: 8px 0 0 0; font-size: 3rem; font-weight: 700; line-height: 1; color: var(--ink);">
+          <span style="font-size: 1rem; font-weight: 400; vertical-align: baseline;">€</span> <span id="incasso-int">—</span><span id="incasso-dec" style="font-size: 1.4rem; color: var(--ink-muted);"></span>
+        </p>
+        <div id="incasso-delta" style="margin-top: 4px;"></div>
+        <div style="border-top: 1px solid var(--border-soft); margin-top: 16px; padding-top: 12px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
+          <div>
+            <p style="margin:0; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-muted);">Pranzo</p>
+            <p id="incasso-lunch" class="font-display" style="margin: 4px 0 0 0; font-size: 1.2rem; font-weight: 700; color: var(--ink);">—</p>
+          </div>
+          <div>
+            <p style="margin:0; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-muted);">Cena</p>
+            <p id="incasso-dinner" class="font-display" style="margin: 4px 0 0 0; font-size: 1.2rem; font-weight: 700; color: var(--ink);">—</p>
+          </div>
+          <div>
+            <p style="margin:0; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-muted);">Spese</p>
+            <p id="incasso-expenses" class="font-display" style="margin: 4px 0 0 0; font-size: 1.2rem; font-weight: 700; color: var(--terracotta-dark);">—</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="max-width: 480px; margin: 0 auto; padding: 0 20px;">
+
+      <!-- DA GESTIRE -->
+      <div id="home-notifications" style="margin-top: 28px;"></div>
+
+      <!-- MENU OPERATIVO -->
+      <p style="margin: 28px 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Operativo</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        ${tile('Segnala scorte', 'alert',     '/segnala',           '#B5391F')}
+        ${tile('Magazzino',      'inventory', '/magazzino',         '#3D5A3D')}
+        ${tile('Carica lotto',   'plus',      '/magazzino/carico',  '#B5391F')}
+        ${tile('Chiusura serale','clock',     '/chiusura-serale',   '#6a4c93')}
+      </div>
+
+      <p style="margin: 24px 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Gestione</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        ${tile('Cassa',     'cash',      '/cassa',      '#3D5A3D')}
+        ${tile('Riordini',  'whatsapp',  '/riordini',   '#25D366')}
+        ${tile('Turni',     'clock',     '/turni',      '#6a4c93')}
+        ${isAdmin ? tile('Stipendi', 'cash', '/stipendi', '#2563EB') : tile('Pasti staff', 'cash', '/pasti-staff', '#8B6A2E')}
+      </div>
+
+      <p style="margin: 24px 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Altro</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+        ${tile('Food Cost',  'bar-chart', '/food-cost',  '#8B6A2E')}
+        ${tile('Fornitori',  'phone',     '/fornitori',  '#3D5A3D')}
+        ${tile('Fatture',    'cash',      '/fatture',    '#2563EB')}
+        ${tile('Impostazioni','settings', '/impostazioni','#8A7A6E')}
+      </div>
+
+      <!-- ESCI -->
+      <div style="text-align: center; padding: 20px 0 100px 0;">
+        <button type="button" id="home-logout" style="background: none; border: none; cursor: pointer; font-size: 13px; color: var(--ink-muted); opacity: 0.7;">
+          ${icon('logout', { size: 16 })} <span style="margin-left: 4px;">Esci</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Wire navigation
+  container.querySelectorAll('[data-go]').forEach((b) => {
+    b.addEventListener('click', () => navigate(b.dataset.go));
+  });
+  container.querySelector('#home-logout')?.addEventListener('click', async () => {
+    const ok = await confirmDialog('Vuoi uscire?', 'Tornerai alla schermata di accesso.', { confirmLabel: 'Esci', cancelLabel: 'Annulla', danger: true });
+    if (ok) logout();
+  });
+
+  // Async data loading
+  loadIncassoCard();
+  loadNotifications(container);
+
+  // Restore header when leaving
+  return () => {
+    if (headerEl) headerEl.style.display = '';
+  };
+}
+
+// ---- Incasso card data ----
+
+async function loadIncassoCard() {
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const fromDate = new Date(today);
+  fromDate.setDate(fromDate.getDate() - 14);
+  const fromStr = fromDate.toISOString().slice(0, 10);
+
+  let summaries;
+  try {
+    summaries = await apiGet(`/daily-summary?from=${fromStr}&to=${todayStr}&limit=30`);
+  } catch { return; }
+
+  // Build lookup
+  const byDate = new Map();
+  for (const s of summaries) byDate.set(s.date, s);
+
+  // Today's summary
+  const todaySummary = byDate.get(todayStr);
+  const todayTotal = getTotal(todaySummary);
+
+  // Fill amount
+  const intEl = document.getElementById('incasso-int');
+  const decEl = document.getElementById('incasso-dec');
+  if (intEl && todayTotal != null) {
+    const parts = todayTotal.toFixed(2).split('.');
+    intEl.textContent = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    decEl.textContent = `,${parts[1]}`;
+  } else if (intEl) {
+    intEl.textContent = '0';
+    decEl.textContent = ',00';
+  }
+
+  // Lunch / dinner / expenses breakdown
+  if (todaySummary) {
+    const lunchEl = document.getElementById('incasso-lunch');
+    const dinnerEl = document.getElementById('incasso-dinner');
+    const expEl = document.getElementById('incasso-expenses');
+    const lunch = Number(todaySummary.partial_lunch || todaySummary.pos_lunch || 0);
+    const dinner = Number(todaySummary.partial_dinner || todaySummary.pos_dinner || 0);
+    const expenses = Number(todaySummary.expenses_total || 0);
+    if (lunchEl) lunchEl.textContent = `€ ${fmtShort(lunch)}`;
+    if (dinnerEl) dinnerEl.textContent = `€ ${fmtShort(dinner)}`;
+    if (expEl) expEl.textContent = expenses > 0 ? `− € ${fmtShort(expenses)}` : '€ 0';
+  }
+
+  // Delta vs weekly average
+  const deltaEl = document.getElementById('incasso-delta');
+  if (deltaEl && todayTotal != null) {
+    const weekAvg = computeWeekAvg(byDate, today);
+    if (weekAvg != null && weekAvg > 0) {
+      const diff = todayTotal - weekAvg;
+      const pct = (diff / weekAvg) * 100;
+      const sign = diff >= 0 ? '+' : '';
+      const color = diff >= 0 ? 'var(--bottle-green)' : 'var(--terracotta-dark)';
+      const arrow = diff >= 0 ? '▲' : '▼';
+      deltaEl.innerHTML = `<p style="margin:0; font-size: 12px; color: ${color}; font-weight: 500;">${arrow} ${sign}${pct.toFixed(1).replace('.', ',')}% <span style="color: var(--ink-muted); font-weight: 400;">vs media settimanale</span></p>`;
+    }
+  }
+}
+
+function getTotal(s) {
+  if (!s) return null;
+  const v = s.computed_total ?? s.fiscal_total ?? (Number(s.pos_total) > 0 ? s.pos_total : null);
+  return v != null ? Number(v) : null;
+}
+
+function computeWeekAvg(byDate, today) {
+  const monday = new Date(today);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const lastMonday = new Date(monday);
+  lastMonday.setDate(lastMonday.getDate() - 7);
+  const lastSunday = new Date(monday);
+  lastSunday.setDate(lastSunday.getDate() - 1);
+
+  const vals = [];
+  const d = new Date(lastMonday);
+  while (d <= lastSunday) {
+    const k = d.toISOString().slice(0, 10);
+    const s = byDate.get(k);
+    const t = getTotal(s);
+    if (t != null) vals.push(t);
+    d.setDate(d.getDate() + 1);
+  }
+  return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+}
+
+// ---- Notifications (Da gestire) ----
+
+async function loadNotifications(container) {
+  const slot = container.querySelector('#home-notifications');
+  if (!slot) return;
+
+  const items = [];
+
+  // Stock alerts
+  try {
+    const alerts = await apiGet('/alerts?status=open&limit=500');
+    const outCount = alerts.filter((a) => a.status_signaled === 'out').length;
+    const lowCount = alerts.filter((a) => a.status_signaled === 'low').length;
+    if (outCount > 0) {
+      items.push(notifCard({
+        color: '#B5391F',
+        bgColor: 'rgba(181,57,31,0.10)',
+        iconName: 'alert',
+        title: `${outCount} ${outCount === 1 ? 'prodotto finito' : 'prodotti finiti'}`,
+        subtitle: lowCount > 0 ? `+ ${lowCount} con scorta bassa` : 'Da riordinare',
+        action: 'Riordini',
+        href: '/riordini',
+      }));
+    } else if (lowCount > 0) {
+      items.push(notifCard({
+        color: '#c9942a',
+        bgColor: 'rgba(201,148,42,0.10)',
+        iconName: 'warning',
+        title: `${lowCount} ${lowCount === 1 ? 'prodotto scarso' : 'prodotti scarsi'}`,
+        subtitle: 'Segnalati dallo staff',
+        action: 'Vedi',
+        href: '/riordini',
+      }));
+    }
+  } catch { /* silent */ }
+
+  // Expiring products
+  try {
+    const expiring = await apiGet('/products?expiring_within_days=3&active=true');
+    if (expiring.length > 0) {
+      items.push(notifCard({
+        color: '#B5391F',
+        bgColor: 'rgba(181,57,31,0.10)',
+        iconName: 'clock',
+        title: `${expiring.length} ${expiring.length === 1 ? 'prodotto in scadenza' : 'prodotti in scadenza'}`,
+        subtitle: 'Entro 3 giorni',
+        action: 'Magazzino',
+        href: '/magazzino',
+      }));
+    }
+  } catch { /* silent */ }
+
+  if (items.length === 0) return;
+
+  slot.innerHTML = `
+    <p style="margin: 0 0 12px 0; font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: var(--ink);">Da gestire</p>
+    <div style="display: grid; gap: 10px;">${items.join('')}</div>
+  `;
+  slot.querySelectorAll('[data-go]').forEach((b) => {
+    b.addEventListener('click', () => navigate(b.dataset.go));
+  });
+}
+
+function notifCard({ color, bgColor, iconName, title, subtitle, action, href }) {
+  return `
+    <div style="background: var(--off-white); border-radius: 12px; border-left: 4px solid ${color}; padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 4px rgba(42,31,26,0.06);">
+      <div style="width: 40px; height: 40px; border-radius: 50%; background: ${bgColor}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: ${color};">
+        ${icon(iconName, { size: 20 })}
+      </div>
+      <div style="flex: 1; min-width: 0;">
+        <p style="margin:0; font-size: 14px; font-weight: 600; color: var(--ink);">${esc(title)}</p>
+        <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--ink-muted);">${esc(subtitle)}</p>
+      </div>
+      <button type="button" data-go="${href}" style="background: ${bgColor}; border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; color: ${color}; cursor: pointer; white-space: nowrap;">
+        ${esc(action)}
+      </button>
+    </div>
+  `;
+}
+
+// ---- Tile helper ----
+
+function tile(label, iconName, href, color) {
+  const bgOpacity = color + '26';
+  return `
+    <button type="button" data-go="${href}" style="
+      background: var(--off-white); border: 1px solid var(--border-soft); border-radius: 14px;
+      min-height: 100px; padding: 16px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 10px;
+      box-shadow: 0 1px 3px rgba(42,31,26,0.04);
+    ">
+      <div style="width: 42px; height: 42px; border-radius: 10px; background: ${bgOpacity}; display: flex; align-items: center; justify-content: center; color: ${color};">
+        ${icon(iconName, { size: 22 })}
+      </div>
+      <span style="font-size: 13px; font-weight: 500; color: var(--ink);">${esc(label)}</span>
+    </button>
+  `;
+}
+
+// =====================================================================
+// STAFF HOME (kept simple)
+// =====================================================================
+
+function mountStaffHome(container, user) {
   setHeader({
     title: 'Amodei',
     brand: true,
-    actions: [
-      {
-        label: 'Esci',
-        iconName: 'logout',
-        onClick: async () => {
-          const ok = await confirmDialog(
-            'Vuoi uscire?',
-            'Tornerai alla schermata di accesso.',
-            { confirmLabel: 'Esci', cancelLabel: 'Annulla', danger: true },
-          );
-          if (ok) logout();
-        },
+    actions: [{
+      label: 'Esci', iconName: 'logout',
+      onClick: async () => {
+        const ok = await confirmDialog('Vuoi uscire?', 'Tornerai alla schermata di accesso.', { confirmLabel: 'Esci', cancelLabel: 'Annulla', danger: true });
+        if (ok) logout();
       },
-    ],
+    }],
   });
 
-  const greeting = user ? `Ciao ${escapeHtml(user.full_name || user.email)}` : 'Ciao';
-  const roleBadge = user ? `<span class="badge badge--success" style="margin-left: var(--space-8); vertical-align: middle;">${user.role}</span>` : '';
+  const greeting = user ? `Ciao ${esc(user.full_name || user.email)}` : 'Ciao';
 
   container.innerHTML = `
     <section class="container container--narrow" style="padding-block: var(--space-32); padding-bottom: 100px;">
       <div class="card card--elevated stack-16">
-        <h2 class="font-display text-2xl" style="margin:0">${greeting} ${roleBadge}</h2>
+        <h2 class="font-display text-2xl" style="margin:0">${greeting}</h2>
         <p class="muted">Cosa vuoi fare oggi?</p>
-
-        ${userHasRole('admin') ? '<div id="home-revenue-kpi" style="margin-top: var(--space-8);"></div>' : ''}
-
         <div class="stack-12" style="margin-top: var(--space-8);">
-          <button type="button" data-go="/guida" class="btn btn--ghost full-width" style="border: 1px dashed var(--border-strong); justify-content: flex-start; padding: var(--space-12);">
-            ${icon('info', { size: 18 })}<span style="margin-left: var(--space-8);">Guida rapida per il tuo ruolo</span>
-          </button>
           <button type="button" data-go="/segnala" class="btn btn--secondary btn--lg full-width">
             ${icon('alert', { size: 20 })}<span>Segnala scorte</span>
           </button>
@@ -78,221 +371,27 @@ export function mountHome(container) {
           <button type="button" data-go="/pasti-staff" class="btn btn--ghost btn--lg full-width">
             ${icon('cash', { size: 20 })}<span>Pasti staff</span>
           </button>
-          ${isAdminOrManager ? `
-            <button type="button" data-go="/riordini" class="btn btn--ghost btn--lg full-width" style="justify-content: space-between;">
-              <span style="display: inline-flex; align-items: center; gap: var(--space-8);">${icon('whatsapp', { size: 20 })}<span>Riordini</span></span>
-              <span id="home-alert-badge"></span>
-            </button>
-            <button type="button" data-go="/fornitori" class="btn btn--ghost btn--lg full-width">
-              ${icon('phone', { size: 20 })}<span>Fornitori</span>
-            </button>
-            <button type="button" data-go="/fatture" class="btn btn--ghost btn--lg full-width">
-              ${icon('cash', { size: 20 })}<span>Fatture</span>
-            </button>
-            <button type="button" data-go="/food-cost" class="btn btn--ghost btn--lg full-width" style="justify-content: space-between;">
-              <span style="display: inline-flex; align-items: center; gap: var(--space-8);">${icon('bar-chart', { size: 20 })}<span>Food Cost</span></span>
-              <span id="home-foodcost-pct" class="muted text-sm"></span>
-            </button>
-            <button type="button" data-go="/turni" class="btn btn--ghost btn--lg full-width" style="justify-content: space-between;">
-              <span style="display: inline-flex; align-items: center; gap: var(--space-8);">${icon('clock', { size: 20 })}<span>Turni</span></span>
-              <span id="home-turni-today" class="muted text-sm"></span>
-            </button>
-            ${userHasRole('admin') ? `
-              <button type="button" data-go="/stipendi" class="btn btn--ghost btn--lg full-width" style="justify-content: space-between;">
-                <span style="display: inline-flex; align-items: center; gap: var(--space-8);">${icon('cash', { size: 20 })}<span>Stipendi</span></span>
-                <span id="home-stipendi-net" class="muted text-sm"></span>
-              </button>
-            ` : ''}
-          ` : ''}
-          ${user && user.role === 'staff' ? `
-            <button type="button" data-go="/miei-turni" class="btn btn--ghost btn--lg full-width">
-              ${icon('clock', { size: 20 })}<span>I miei turni</span>
-            </button>
-          ` : ''}
+          <button type="button" data-go="/miei-turni" class="btn btn--ghost btn--lg full-width">
+            ${icon('clock', { size: 20 })}<span>I miei turni</span>
+          </button>
         </div>
       </div>
-
-      <p class="muted text-xs center-text" style="margin-top: var(--space-24);">
-        <a href="./src/style-guide.html" target="_blank" rel="noopener">Style guide</a> · v0.5.0
-      </p>
     </section>
   `;
 
   container.querySelectorAll('[data-go]').forEach((b) => {
     b.addEventListener('click', () => navigate(b.dataset.go));
   });
-
-  // Async fetch alert count (admin/manager only)
-  if (isAdminOrManager) {
-    apiGet('/alerts?status=open&limit=500').then((alerts) => {
-      const slot = container.querySelector('#home-alert-badge');
-      if (!slot) return;
-      const urgent = alerts.filter((a) => a.status_signaled === 'out').length;
-      slot.innerHTML = alertBadge(alerts.length, { urgent });
-    }).catch(() => {});
-    // Async fetch food cost % for the home button (silent on error).
-    apiGet('/foodcost/monthly').then((d) => {
-      const slot = container.querySelector('#home-foodcost-pct');
-      if (!slot) return;
-      const op = d.operating_total;
-      const dotByStatus = { ok: '🟢', warn: '🟠', alert: '🔴' };
-      const dot = dotByStatus[op.status] || '';
-      const pctStr = op.pct_fiscal == null ? 'N/D' : `${Number(op.pct_fiscal).toFixed(1).replace('.', ',')}%`;
-      slot.textContent = `${pctStr} ${dot}`.trim();
-    }).catch(() => {});
-    // Total hours del giorno (turni di oggi)
-    const today = new Date().toISOString().slice(0, 10);
-    apiGet(`/work-shifts/by-date/${today}`).then((d) => {
-      const slot = container.querySelector('#home-turni-today');
-      if (!slot) return;
-      const total = Number(d.total_hours);
-      slot.textContent = total > 0 ? `${total % 1 === 0 ? total : total.toFixed(1)}h oggi` : 'Inserisci';
-    }).catch(() => {});
-    // Stipendio mese (admin only)
-    if (userHasRole('admin')) {
-      const now = new Date();
-      apiGet(`/work-shifts/monthly-payroll?year=${now.getFullYear()}&month=${now.getMonth() + 1}`).then((d) => {
-        const slot = container.querySelector('#home-stipendi-net');
-        if (!slot) return;
-        slot.textContent = `€ ${Number(d.totals.total_net).toFixed(2).replace('.', ',')} da consegnare`;
-      }).catch(() => {});
-
-      // Revenue KPI card
-      loadRevenueKpi(container);
-    }
-  }
 }
 
-async function loadRevenueKpi(container) {
-  const slot = container.querySelector('#home-revenue-kpi');
-  if (!slot) return;
+// =====================================================================
+// Helpers
+// =====================================================================
 
-  const today = new Date();
-  const from = new Date(today);
-  from.setDate(from.getDate() - 40);
-  const fromStr = from.toISOString().slice(0, 10);
-  const toStr = today.toISOString().slice(0, 10);
-
-  let summaries;
-  try {
-    summaries = await apiGet(`/daily-summary?from=${fromStr}&to=${toStr}&limit=60`);
-  } catch {
-    slot.innerHTML = '';
-    return;
-  }
-
-  const byDate = new Map();
-  for (const s of summaries) {
-    const val = s.computed_total ?? s.fiscal_total ?? (Number(s.pos_total) > 0 ? s.pos_total : null);
-    if (val != null) byDate.set(s.date, Number(val));
-  }
-
-  if (byDate.size === 0) {
-    slot.innerHTML = `<div class="card" style="padding: var(--space-16); margin-bottom: var(--space-12); background: var(--ink); color: var(--off-white); border-radius: var(--radius-xl);">
-      <p class="text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); opacity: 0.7; color: inherit;">Incassi</p>
-      <p class="muted text-sm" style="margin: var(--space-8) 0 0 0; color: rgba(255,255,255,0.6);">Nessun dato disponibile. Chiudi almeno una sessione POS o inserisci i totali in cassa per vedere le statistiche.</p>
-    </div>`;
-    return;
-  }
-
-  // --- Ultimo incasso ---
-  const sortedDates = [...byDate.keys()].sort().reverse();
-  const lastDate = sortedDates[0];
-  const lastAmount = byDate.get(lastDate);
-
-  // --- Stesso giorno settimana scorsa ---
-  const lastDateObj = new Date(lastDate);
-  const sameWeekdayObj = new Date(lastDateObj);
-  sameWeekdayObj.setDate(sameWeekdayObj.getDate() - 7);
-  const sameWeekdayStr = sameWeekdayObj.toISOString().slice(0, 10);
-  const sameWeekdayAmount = byDate.get(sameWeekdayStr);
-
-  // --- Media settimanale corrente vs scorsa ---
-  const mondayOf = (d) => { const m = new Date(d); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); return m; };
-  const thisMonday = mondayOf(today);
-  const lastMonday = new Date(thisMonday); lastMonday.setDate(lastMonday.getDate() - 7);
-  const lastSunday = new Date(thisMonday); lastSunday.setDate(lastSunday.getDate() - 1);
-
-  const weekValues = (start, end) => {
-    const vals = [];
-    const d = new Date(start);
-    while (d <= end) {
-      const k = d.toISOString().slice(0, 10);
-      if (byDate.has(k)) vals.push(byDate.get(k));
-      d.setDate(d.getDate() + 1);
-    }
-    return vals;
-  };
-
-  const thisWeekVals = weekValues(thisMonday, today);
-  const lastWeekVals = weekValues(lastMonday, lastSunday);
-  const thisWeekAvg = thisWeekVals.length > 0 ? thisWeekVals.reduce((a, b) => a + b, 0) / thisWeekVals.length : null;
-  const lastWeekAvg = lastWeekVals.length > 0 ? lastWeekVals.reduce((a, b) => a + b, 0) / lastWeekVals.length : null;
-
-  // --- Proiezione mensile vs mese scorso ---
-  const thisYear = today.getFullYear();
-  const thisMonth = today.getMonth();
-  const daysInThisMonth = new Date(thisYear, thisMonth + 1, 0).getDate();
-
-  const monthValues = (year, month) => {
-    const vals = [];
-    const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
-    for (const [k, v] of byDate) {
-      if (k.startsWith(prefix)) vals.push(v);
-    }
-    return vals;
-  };
-
-  const thisMonthVals = monthValues(thisYear, thisMonth);
-  const thisMonthTotal = thisMonthVals.reduce((a, b) => a + b, 0);
-  const thisMonthDays = thisMonthVals.length;
-  const projectedMonth = thisMonthDays > 0 ? (thisMonthTotal / thisMonthDays) * daysInThisMonth : null;
-
-  const lastMonthDate = new Date(thisYear, thisMonth - 1, 1);
-  const lastMonthVals = monthValues(lastMonthDate.getFullYear(), lastMonthDate.getMonth());
-  const lastMonthTotal = lastMonthVals.reduce((a, b) => a + b, 0);
-
-  // --- Render ---
-  const fmt = (v) => v == null ? '—' : `€ ${v.toFixed(2).replace('.', ',')}`;
-  const diffHtml = (current, previous, label) => {
-    if (current == null || previous == null || previous === 0) return `<p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">${label}: dati insufficienti</p>`;
-    const diff = current - previous;
-    const pct = (diff / previous) * 100;
-    const sign = diff >= 0 ? '+' : '';
-    const color = diff >= 0 ? 'var(--bottle-green, #4f8e3a)' : 'var(--terracotta-dark)';
-    const arrow = diff >= 0 ? '▲' : '▼';
-    return `<p style="margin: var(--space-4) 0 0 0; font-size: var(--text-xs); color: ${color};">
-      ${arrow} ${sign}${fmt(diff)} (${sign}${pct.toFixed(1).replace('.', ',')}%) <span class="muted" style="color: var(--ink-muted);">vs ${label}</span>
-    </p>`;
-  };
-
-  const lastDateLabel = new Date(lastDate).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
-
-  slot.innerHTML = `
-    <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-12); background: var(--ink); color: var(--off-white); border-radius: var(--radius-xl);">
-      <p class="text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); opacity: 0.7; color: inherit;">Ultimo incasso · ${escapeHtml(lastDateLabel)}</p>
-      <p class="font-display" style="margin: var(--space-4) 0 0 0; font-size: 2.5rem; line-height: 1; color: inherit;">${fmt(lastAmount)}</p>
-      ${diffHtml(lastAmount, sameWeekdayAmount, 'stesso giorno sett. scorsa')}
-
-      <div style="margin-top: var(--space-16); padding-top: var(--space-12); border-top: 1px solid rgba(255,255,255,0.15);">
-        <div style="display: flex; justify-content: space-between; align-items: baseline; color: inherit;">
-          <span class="text-sm" style="color: inherit; opacity: 0.85;">Media giornaliera sett.</span>
-          <span class="font-display text-lg" style="color: inherit;">${fmt(thisWeekAvg)}</span>
-        </div>
-        ${diffHtml(thisWeekAvg, lastWeekAvg, 'sett. precedente')}
-      </div>
-
-      <div style="margin-top: var(--space-12); padding-top: var(--space-12); border-top: 1px solid rgba(255,255,255,0.15);">
-        <div style="display: flex; justify-content: space-between; align-items: baseline; color: inherit;">
-          <span class="text-sm" style="color: inherit; opacity: 0.85;">Proiezione mese</span>
-          <span class="font-display text-lg" style="color: inherit;">${fmt(projectedMonth)}</span>
-        </div>
-        ${diffHtml(projectedMonth, lastMonthTotal > 0 ? lastMonthTotal : null, 'mese scorso (€ ' + fmt(lastMonthTotal).replace('€ ', '') + ')')}
-      </div>
-    </div>
-  `;
+function fmtShort(n) {
+  return Number(n).toFixed(2).replace('.', ',');
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
