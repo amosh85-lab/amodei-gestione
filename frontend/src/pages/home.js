@@ -176,14 +176,24 @@ async function loadRevenueKpi(container) {
   let summaries;
   try {
     summaries = await apiGet(`/daily-summary?from=${fromStr}&to=${toStr}&limit=60`);
-  } catch { return; }
+  } catch {
+    slot.innerHTML = '';
+    return;
+  }
 
   const byDate = new Map();
   for (const s of summaries) {
-    if (s.computed_total != null) byDate.set(s.date, Number(s.computed_total));
+    const val = s.computed_total ?? s.fiscal_total ?? (Number(s.pos_total) > 0 ? s.pos_total : null);
+    if (val != null) byDate.set(s.date, Number(val));
   }
 
-  if (byDate.size === 0) return;
+  if (byDate.size === 0) {
+    slot.innerHTML = `<div class="card" style="padding: var(--space-16); margin-bottom: var(--space-12); background: var(--ink); color: var(--off-white); border-radius: var(--radius-xl);">
+      <p class="text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); opacity: 0.7; color: inherit;">Incassi</p>
+      <p class="muted text-sm" style="margin: var(--space-8) 0 0 0; color: rgba(255,255,255,0.6);">Nessun dato disponibile. Chiudi almeno una sessione POS o inserisci i totali in cassa per vedere le statistiche.</p>
+    </div>`;
+    return;
+  }
 
   // --- Ultimo incasso ---
   const sortedDates = [...byDate.keys()].sort().reverse();
