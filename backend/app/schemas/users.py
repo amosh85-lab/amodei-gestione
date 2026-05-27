@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models.users import UserRole
+from app.models.users import PayType, UserRole
 
 
 class UserMini(BaseModel):
@@ -28,7 +28,9 @@ class UserOutAdmin(UserMini):
     """Extended user payload returned ONLY by /users (admin-only router).
     Includes payroll fields. Never use this anywhere else."""
 
+    pay_type: PayType = PayType.hourly
     hourly_rate: Decimal | None = None
+    monthly_salary: Decimal | None = None
     weekly_hours_contract: Decimal | None = None
 
 
@@ -39,7 +41,9 @@ class UserCreate(BaseModel):
     full_name: str = Field(min_length=1, max_length=160)
     role: UserRole
     password: str = Field(min_length=8, max_length=128)
+    pay_type: PayType = PayType.hourly
     hourly_rate: Decimal | None = Field(default=None, ge=0)
+    monthly_salary: Decimal | None = Field(default=None, ge=0)
     weekly_hours_contract: Decimal | None = Field(default=None, ge=0, le=168)
 
 
@@ -50,5 +54,7 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
     active: bool | None = None
     password: str | None = Field(default=None, min_length=8, max_length=128)
+    pay_type: PayType | None = None
     hourly_rate: Decimal | None = Field(default=None, ge=0)
+    monthly_salary: Decimal | None = Field(default=None, ge=0)
     weekly_hours_contract: Decimal | None = Field(default=None, ge=0, le=168)

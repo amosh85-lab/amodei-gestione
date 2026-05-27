@@ -59,7 +59,9 @@ def create_user(
         role=payload.role,
         password_hash=hash_password(payload.password),
         active=True,
+        pay_type=payload.pay_type,
         hourly_rate=payload.hourly_rate,
+        monthly_salary=payload.monthly_salary,
         weekly_hours_contract=payload.weekly_hours_contract,
     )
     session.add(new_user)
@@ -102,9 +104,15 @@ def update_user(
     if "active" in changes and changes["active"] is not None:
         target.active = changes["active"]
         del changes["active"]
+    if "pay_type" in changes and changes["pay_type"] is not None:
+        target.pay_type = changes["pay_type"]
+        del changes["pay_type"]
     if "hourly_rate" in changes:
         target.hourly_rate = changes["hourly_rate"]
         del changes["hourly_rate"]
+    if "monthly_salary" in changes:
+        target.monthly_salary = changes["monthly_salary"]
+        del changes["monthly_salary"]
     if "weekly_hours_contract" in changes:
         target.weekly_hours_contract = changes["weekly_hours_contract"]
         del changes["weekly_hours_contract"]

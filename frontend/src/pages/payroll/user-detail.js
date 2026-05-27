@@ -41,21 +41,34 @@ export async function mountPayrollUserDetail(container, params, query) {
   }
   const u = r.user;
   const totalHours = Number(r.total_hours);
+  const isFixed = u.pay_type === 'fixed';
+
+  const rateInfo = isFixed
+    ? (u.monthly_salary != null ? `<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">Fisso mensile: € ${fmt(u.monthly_salary)}</p>` : '<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">⚠ Stipendio mensile non configurato</p>')
+    : (u.hourly_rate != null ? `<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">Tariffa: € ${fmt(u.hourly_rate)}/h${u.weekly_hours_contract ? ` · Contratto: ${formatHours(u.weekly_hours_contract)}h/sett` : ''}</p>` : '<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">⚠ Nessuna tariffa configurata</p>');
+
+  const calcRows = isFixed
+    ? `
+        <div class="row" style="justify-content: space-between;"><span>Ore lavorate</span><span style="font-family: var(--font-display);">${formatHours(totalHours)} h</span></div>
+        <div class="row" style="justify-content: space-between; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-soft);"><span>Fisso mensile</span><span style="font-family: var(--font-display);">€ ${fmt(r.gross_amount)}</span></div>
+        <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Acconti mese (ref ${escapeHtml(payrollStr)})</span><span style="font-family: var(--font-display); color: var(--terracotta-dark);">− € ${fmt(r.advances_taken)}</span></div>`
+    : `
+        <div class="row" style="justify-content: space-between;"><span>Ore totali</span><span style="font-family: var(--font-display);">${formatHours(totalHours)} h</span></div>
+        <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Tariffa applicata</span><span style="font-family: var(--font-display);">€ ${fmt(u.hourly_rate)}/h</span></div>
+        <div class="row" style="justify-content: space-between; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-soft);"><span>Lordo</span><span style="font-family: var(--font-display);">€ ${fmt(r.gross_amount)}</span></div>
+        <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Acconti mese (ref ${escapeHtml(payrollStr)})</span><span style="font-family: var(--font-display); color: var(--terracotta-dark);">− € ${fmt(r.advances_taken)}</span></div>`;
 
   container.innerHTML = `
     <section class="container" style="padding-block: var(--space-12); padding-bottom: 96px;">
       <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-16);">
         <p style="margin: 0; font-weight: 600; font-size: 1.2rem;">${escapeHtml(u.full_name)}</p>
         <p class="muted text-xs" style="margin: 2px 0 0 0;">${escapeHtml(payroll.month_label)}</p>
-        ${u.hourly_rate != null ? `<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">Tariffa: € ${fmt(u.hourly_rate)}/h${u.weekly_hours_contract ? ` · Contratto: ${formatHours(u.weekly_hours_contract)}h/sett` : ''}</p>` : '<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">⚠ Nessuna tariffa configurata</p>'}
+        ${rateInfo}
       </div>
 
       <h2 style="margin: var(--space-12) 0 var(--space-8) 0; font-family: var(--font-display); font-size: var(--text-lg);">Calcolo</h2>
       <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-16);">
-        <div class="row" style="justify-content: space-between;"><span>Ore totali</span><span style="font-family: var(--font-display);">${formatHours(totalHours)} h</span></div>
-        <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Tariffa applicata</span><span style="font-family: var(--font-display);">€ ${fmt(u.hourly_rate)}/h</span></div>
-        <div class="row" style="justify-content: space-between; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-soft);"><span>Lordo</span><span style="font-family: var(--font-display);">€ ${fmt(r.gross_amount)}</span></div>
-        <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Acconti mese (ref ${escapeHtml(payrollStr)})</span><span style="font-family: var(--font-display); color: var(--terracotta-dark);">− € ${fmt(r.advances_taken)}</span></div>
+        ${calcRows}
         <div class="row" style="justify-content: space-between; margin-top: var(--space-12); padding-top: var(--space-12); border-top: 2px solid var(--ink); font-weight: 600;">
           <span>NETTO DA CONSEGNARE</span>
           <span style="font-family: var(--font-display); font-size: 1.6rem; color: var(--terracotta);">€ ${fmt(r.net_to_pay)}</span>

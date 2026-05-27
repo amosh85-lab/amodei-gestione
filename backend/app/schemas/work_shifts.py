@@ -119,7 +119,9 @@ class _UserMiniWithRate(BaseModel):
     full_name: str
     role: str
     active: bool
+    pay_type: str = "hourly"
     hourly_rate: Decimal | None = None
+    monthly_salary: Decimal | None = None
     weekly_hours_contract: Decimal | None = None
 
 

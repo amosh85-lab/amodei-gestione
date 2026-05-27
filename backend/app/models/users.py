@@ -18,6 +18,11 @@ class UserRole(str, enum.Enum):
     staff = "staff"
 
 
+class PayType(str, enum.Enum):
+    hourly = "hourly"
+    fixed = "fixed"
+
+
 class User(AmodeiBase, TimestampMixin):
     __tablename__ = "users"
 
@@ -28,5 +33,9 @@ class User(AmodeiBase, TimestampMixin):
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     # PAYROLL — dati sensibili, esposti SOLO via UserOutAdmin (in /users router).
     # Nessun altro endpoint deve includerli (anche su /auth/me).
+    pay_type: Mapped[PayType] = mapped_column(
+        pg_enum(PayType, "pay_type"), nullable=False, server_default="hourly",
+    )
     hourly_rate: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
+    monthly_salary: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     weekly_hours_contract: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)

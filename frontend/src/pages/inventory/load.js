@@ -1,6 +1,6 @@
 // /magazzino/carico — multi-step form to register a new batch.
 
-import { apiGet, apiPost, apiUpload, ApiError } from '../../js/api.js';
+import { apiGet, apiPost, apiPatch, apiUpload, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
@@ -59,6 +59,12 @@ export async function mountInventoryLoad(container, _params, query) {
   // Pre-select product if /magazzino/carico?product_id=N
   if (query.product_id) {
     state.product = products.find((p) => String(p.id) === String(query.product_id)) || null;
+  }
+
+  // Auto-pre-fill supplier from product's preferred_supplier_id
+  if (state.product && state.product.preferred_supplier_id) {
+    const matchedSup = suppliers.find((s) => s.id === state.product.preferred_supplier_id);
+    if (matchedSup) state.supplier = matchedSup;
   }
 
   render();
@@ -195,6 +201,11 @@ export async function mountInventoryLoad(container, _params, query) {
         b.addEventListener('click', () => {
           const id = Number(b.dataset.pid);
           state.product = products.find((p) => p.id === id);
+          // Auto-pre-fill supplier from product's preferred_supplier
+          if (state.product?.preferred_supplier_id) {
+            const matchedSup = suppliers.find((s) => s.id === state.product.preferred_supplier_id);
+            if (matchedSup) state.supplier = matchedSup;
+          }
           state.step = 2;
           render();
         });
@@ -206,12 +217,20 @@ export async function mountInventoryLoad(container, _params, query) {
   }
 
   function openNewProductModal() {
+    const supplierOpts = suppliers.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
     const body = `
       <form id="new-product-form" class="stack-12">
         <div class="form-row"><label class="label label--required" for="np-name">Nome</label><input id="np-name" class="input" required maxlength="200"></div>
         <div class="grid-2">
           <div class="form-row"><label class="label" for="np-cat">Categoria</label><input id="np-cat" class="input" maxlength="80"></div>
           <div class="form-row"><label class="label label--required" for="np-unit">Unità</label><input id="np-unit" class="input" list="unit-list" required maxlength="32" placeholder="es. kg, bottiglia, cassa"></div>
+        </div>
+        <div class="form-row">
+          <label class="label label--required" for="np-supplier">Fornitore di riferimento</label>
+          <select id="np-supplier" class="select">
+            <option value="">— scegli fornitore —</option>
+            ${supplierOpts}
+          </select>
         </div>
         <div class="form-row"><label class="label" for="np-vat">IVA</label>
           <select id="np-vat" class="select">
@@ -228,15 +247,21 @@ export async function mountInventoryLoad(container, _params, query) {
       { label: 'Crea', variant: 'primary', closeOnClick: false, onClick: async (close) => {
         const name = document.getElementById('np-name').value.trim();
         const unit = document.getElementById('np-unit').value.trim();
+        const supplierId = document.getElementById('np-supplier').value;
         if (!name || !unit) { showToast('Nome e unità sono obbligatori.', 'warn'); return; }
+        if (!supplierId) { showToast('Seleziona un fornitore di riferimento.', 'warn'); return; }
         try {
           const created = await apiPost('/products', {
             name, unit,
             category: document.getElementById('np-cat').value.trim() || null,
             vat_rate: document.getElementById('np-vat').value,
+            preferred_supplier_id: Number(supplierId),
           });
           products.unshift(created);
           state.product = created;
+          // Pre-select supplier from the product's preferred supplier
+          const matchedSup = suppliers.find((s) => s.id === Number(supplierId));
+          if (matchedSup) state.supplier = matchedSup;
           state.step = 2;
           showToast('Prodotto creato', 'success');
           close();
@@ -523,6 +548,12 @@ export async function mountInventoryLoad(container, _params, query) {
 
     try {
       const batch = await apiUpload('/batches', fd, { timeoutMs: 30000 });
+      // Auto-set preferred_supplier on product if not already set
+      if (state.supplier && !state.product.preferred_supplier_id) {
+        apiPatch(`/products/${state.product.id}`, {
+          preferred_supplier_id: state.supplier.id,
+        }).catch(() => {});
+      }
       showToast('Lotto caricato', 'success', 3000);
       navigate(`/magazzino/${state.product.id}`);
     } catch (err) {

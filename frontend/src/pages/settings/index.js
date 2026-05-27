@@ -259,7 +259,20 @@ export async function mountSettings(container, _params, _query) {
         <hr style="border: none; border-top: 1px solid var(--border-soft); margin: var(--space-8) 0;">
         <p class="muted text-xs" style="margin: 0 0 var(--space-4) 0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">Compenso (admin)</p>
         <p class="muted text-xs" style="margin: 0 0 var(--space-8) 0;">Visibile solo agli admin, usato per il calcolo dello stipendio mensile.</p>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8);">
+        <div>
+          <label class="label" style="margin:0;">Tipo compenso</label>
+          <div style="display: flex; gap: var(--space-8); margin-top: var(--space-4);">
+            <label style="display: flex; align-items: center; gap: var(--space-4); cursor: pointer;">
+              <input type="radio" name="u-paytype" value="hourly" ${(user?.pay_type || 'hourly') === 'hourly' ? 'checked' : ''}>
+              <span>A ore</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: var(--space-4); cursor: pointer;">
+              <input type="radio" name="u-paytype" value="fixed" ${user?.pay_type === 'fixed' ? 'checked' : ''}>
+              <span>Fisso mensile</span>
+            </label>
+          </div>
+        </div>
+        <div id="u-hourly-fields" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); ${user?.pay_type === 'fixed' ? 'display:none;' : ''}">
           <div>
             <label class="label" for="u-rate" style="margin:0;">Tariffa €/h</label>
             <input type="number" id="u-rate" class="input" step="0.01" min="0" placeholder="es. 10,00" value="${user?.hourly_rate != null ? Number(user.hourly_rate).toFixed(2) : ''}">
@@ -268,6 +281,10 @@ export async function mountSettings(container, _params, _query) {
             <label class="label" for="u-contract" style="margin:0;">Ore/sett. contratto</label>
             <input type="number" id="u-contract" class="input" step="0.25" min="0" max="168" placeholder="es. 40" value="${user?.weekly_hours_contract != null ? Number(user.weekly_hours_contract) : ''}">
           </div>
+        </div>
+        <div id="u-fixed-fields" style="${user?.pay_type === 'fixed' ? '' : 'display:none;'}">
+          <label class="label" for="u-salary" style="margin:0;">Stipendio mensile €</label>
+          <input type="number" id="u-salary" class="input" step="0.01" min="0" placeholder="es. 1200,00" value="${user?.monthly_salary != null ? Number(user.monthly_salary).toFixed(2) : ''}">
         </div>
       </div>
     `;
@@ -286,24 +303,28 @@ export async function mountSettings(container, _params, _query) {
             const password = document.getElementById('u-password').value;
             if (!fullName || !role) { showToast('Nome e ruolo obbligatori', 'warn'); return; }
             try {
-              // Campi compenso (admin only)
-            const rateRaw = document.getElementById('u-rate').value.trim();
-            const contractRaw = document.getElementById('u-contract').value.trim();
-            const hourlyRate = rateRaw === '' ? null : parseNumberInput(rateRaw);
-            const weeklyHoursContract = contractRaw === '' ? null : parseNumberInput(contractRaw);
-            if (isNew) {
+              const payType = document.querySelector('input[name="u-paytype"]:checked')?.value || 'hourly';
+              const rateRaw = document.getElementById('u-rate').value.trim();
+              const contractRaw = document.getElementById('u-contract').value.trim();
+              const salaryRaw = document.getElementById('u-salary').value.trim();
+              const hourlyRate = rateRaw === '' ? null : parseNumberInput(rateRaw);
+              const weeklyHoursContract = contractRaw === '' ? null : parseNumberInput(contractRaw);
+              const monthlySalary = salaryRaw === '' ? null : parseNumberInput(salaryRaw);
+              if (isNew) {
                 const email = document.getElementById('u-email').value.trim().toLowerCase();
                 if (!email) { showToast('Email obbligatoria', 'warn'); return; }
                 if (!password || password.length < 8) { showToast('Password min. 8 caratteri', 'warn'); return; }
-                const payload = { email, full_name: fullName, role, password };
+                const payload = { email, full_name: fullName, role, password, pay_type: payType };
                 if (hourlyRate !== null) payload.hourly_rate = hourlyRate.toFixed(2);
+                if (monthlySalary !== null) payload.monthly_salary = monthlySalary.toFixed(2);
                 if (weeklyHoursContract !== null) payload.weekly_hours_contract = weeklyHoursContract.toFixed(2);
                 await apiPost('/users', payload);
                 showToast('Utente creato', 'success');
               } else {
                 const active = document.getElementById('u-active').checked;
-                const body = { full_name: fullName, role, active,
+                const body = { full_name: fullName, role, active, pay_type: payType,
                                 hourly_rate: hourlyRate !== null ? hourlyRate.toFixed(2) : null,
+                                monthly_salary: monthlySalary !== null ? monthlySalary.toFixed(2) : null,
                                 weekly_hours_contract: weeklyHoursContract !== null ? weeklyHoursContract.toFixed(2) : null };
                 if (password) {
                   if (password.length < 8) { showToast('Password min. 8 caratteri', 'warn'); return; }
@@ -321,6 +342,16 @@ export async function mountSettings(container, _params, _query) {
         },
       ],
     );
+    // Wire pay-type radio toggle
+    document.querySelectorAll('input[name="u-paytype"]').forEach((r) => {
+      r.addEventListener('change', () => {
+        const isFixed = r.value === 'fixed';
+        const hourlyEl = document.getElementById('u-hourly-fields');
+        const fixedEl = document.getElementById('u-fixed-fields');
+        if (hourlyEl) hourlyEl.style.display = isFixed ? 'none' : 'grid';
+        if (fixedEl) fixedEl.style.display = isFixed ? '' : 'none';
+      });
+    });
   }
 
   function openEditFloat() {

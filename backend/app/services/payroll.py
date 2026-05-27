@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.cash import EmployeeAdvance
-from app.models.users import User, UserRole
+from app.models.users import PayType, User, UserRole
 from app.models.work_shifts import WorkShift
 
 ZERO = Decimal("0")
@@ -152,8 +152,12 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
             .where(EmployeeAdvance.settled_at.is_(None))
         ) or 0
 
-        # Lordo / netto solo se hourly_rate impostata
-        if u.hourly_rate is not None:
+        # Lordo / netto: dipende dal tipo di compenso
+        is_fixed = u.pay_type == PayType.fixed
+        if is_fixed and u.monthly_salary is not None:
+            gross = _q2(u.monthly_salary)
+            net = _q2(gross - adv_for_month)
+        elif not is_fixed and u.hourly_rate is not None:
             gross = _q2(total_hours * u.hourly_rate)
             net = _q2(gross - adv_for_month)
         else:
@@ -186,6 +190,10 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
             })
             wk_monday = wk_monday + timedelta(days=7)
 
+        needs_config = (
+            (is_fixed and u.monthly_salary is None)
+            or (not is_fixed and u.hourly_rate is None)
+        )
         rows.append({
             "user": u,
             "total_hours": total_hours,
@@ -194,7 +202,7 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
             "advances_settled_in_month": adv_settled,
             "net_to_pay": net,
             "has_unsettled_advances": unsettled_count > 0,
-            "needs_configuration": u.hourly_rate is None,
+            "needs_configuration": needs_config,
             "weekly_breakdown": weekly_rows,
         })
 

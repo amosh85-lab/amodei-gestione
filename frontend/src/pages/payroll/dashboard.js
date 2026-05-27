@@ -96,14 +96,16 @@ export async function mountPayrollDashboard(container, _params, query) {
 
   function renderUserCard(r) {
     const u = r.user;
+    const isFixed = u.pay_type === 'fixed';
     if (r.needs_configuration) {
+      const configMsg = isFixed ? '⚠ Stipendio mensile non configurato' : '⚠ Tariffa oraria non configurata';
       return `
         <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-12); border-left: 4px solid var(--warning, #c9942a);">
           <p style="margin: 0; font-weight: 600;">${escapeHtml(u.full_name)}</p>
-          <p class="muted text-sm" style="margin: var(--space-8) 0;">⚠ Tariffa oraria non configurata</p>
+          <p class="muted text-sm" style="margin: var(--space-8) 0;">${configMsg}</p>
           <p style="margin: 0;">Ore lavorate: <strong>${formatHours(r.total_hours)}</strong></p>
           <p class="muted text-sm" style="margin: var(--space-4) 0 var(--space-12) 0;">Lordo: non calcolabile</p>
-          <button type="button" data-config="${u.id}" class="btn btn--secondary btn--sm">Configura tariffa</button>
+          <button type="button" data-config="${u.id}" class="btn btn--secondary btn--sm">Configura compenso</button>
         </div>
       `;
     }
@@ -112,13 +114,19 @@ export async function mountPayrollDashboard(container, _params, query) {
       : Number(r.advances_settled_in_month) > 0
         ? `<span class="badge" style="background: rgba(79,142,58,0.15); color: var(--bottle-green, #4f8e3a); margin-left: var(--space-8);">✓ Saldati</span>`
         : '';
+    const rateLabel = isFixed
+      ? `Fisso mensile: € ${fmt(u.monthly_salary)}`
+      : `Tariffa: € ${fmt(u.hourly_rate)}/h${u.weekly_hours_contract ? ` · Contratto: ${formatHours(u.weekly_hours_contract)}h/sett` : ''}`;
+    const grossLabel = isFixed
+      ? `Fisso mensile`
+      : `Lordo (${formatHours(r.total_hours)} × ${fmt(u.hourly_rate)})`;
     return `
       <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-12);">
         <p style="margin: 0; font-weight: 600;">${escapeHtml(u.full_name)}</p>
-        <p class="muted text-xs" style="margin: 2px 0 var(--space-12) 0;">Tariffa: € ${fmt(u.hourly_rate)}/h${u.weekly_hours_contract ? ` · Contratto: ${formatHours(u.weekly_hours_contract)}h/sett` : ''}</p>
+        <p class="muted text-xs" style="margin: 2px 0 var(--space-12) 0;">${rateLabel}</p>
         <div style="display: grid; gap: var(--space-4); font-size: var(--text-sm);">
           <div class="row" style="justify-content: space-between;"><span class="muted">Ore lavorate</span><span style="font-family: var(--font-display);">${formatHours(r.total_hours)} h</span></div>
-          <div class="row" style="justify-content: space-between;"><span class="muted">Lordo (${formatHours(r.total_hours)} × ${fmt(u.hourly_rate)})</span><span style="font-family: var(--font-display);">€ ${fmt(r.gross_amount)}</span></div>
+          <div class="row" style="justify-content: space-between;"><span class="muted">${grossLabel}</span><span style="font-family: var(--font-display);">€ ${fmt(r.gross_amount)}</span></div>
           <div class="row" style="justify-content: space-between;"><span class="muted">Acconti del mese${unsettledBadge}</span><span style="font-family: var(--font-display); color: var(--terracotta-dark);">− € ${fmt(r.advances_taken)}</span></div>
         </div>
         <div style="border-top: 2px solid var(--ink); margin-top: var(--space-12); padding-top: var(--space-12);">

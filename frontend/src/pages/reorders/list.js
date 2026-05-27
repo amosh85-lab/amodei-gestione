@@ -107,6 +107,9 @@ export function mountReordersList(container, _params, query) {
       const systemBadge = a.source === 'system'
         ? `<span class="badge" style="background: var(--cream-soft); color: var(--ink-muted); white-space: nowrap;" title="${escapeHtml(a.notes || 'Generato dal sistema')}">🤖 sistema</span>`
         : '';
+      const noteHtml = a.notes && a.source !== 'system'
+        ? `<p class="muted text-xs" style="margin: var(--space-4) 0 0 0; font-style: italic;">📝 ${escapeHtml(a.notes)}${a.signaled_by_name ? ` — ${escapeHtml(a.signaled_by_name)}` : ''}</p>`
+        : '';
       return `<div style="padding: var(--space-8) 0; border-top: 1px solid var(--border-soft);">
         <div class="row" style="gap: var(--space-8); align-items: center; flex-wrap: wrap;">
           <span class="badge ${sev}">${sevLabel}</span>
@@ -117,6 +120,7 @@ export function mountReordersList(container, _params, query) {
           <span class="muted text-xs" style="white-space:nowrap;">stock ${qtyTotal}</span>
           ${suggested}
         </div>
+        ${noteHtml}
       </div>`;
     }).join('');
     const cta = g.supplier

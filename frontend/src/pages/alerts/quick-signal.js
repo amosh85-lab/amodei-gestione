@@ -7,7 +7,7 @@
 import { apiGet, apiPost, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { icon } from '../../js/icons.js';
-import { showToast, skeletonList } from '../../js/components.js';
+import { showToast, showModal, skeletonList } from '../../js/components.js';
 
 export async function mountQuickSignal(container, _params, query = {}) {
   setHeader({
@@ -150,24 +150,45 @@ export async function mountQuickSignal(container, _params, query = {}) {
 
   async function signal(productId, level) {
     if (state.pending.has(productId)) return;
+
+    // Show note input modal before sending
+    const product = products.find((p) => p.id === productId);
+    const pName = product ? product.name : `#${productId}`;
+    const levelLabel = level === 'out' ? 'Finito' : 'Scarso';
+
+    showModal(
+      `${levelLabel}: ${escapeHtml(pName)}`,
+      `<div class="stack-12">
+        <p class="muted text-sm" style="margin:0;">Aggiungi una nota (facoltativa): quanto ne è rimasto, urgenza, o qualunque altra info utile per chi gestisce l'ordine.</p>
+        <textarea id="signal-notes" class="textarea" rows="3" maxlength="500" placeholder="es. rimasta mezza bottiglia, serve per il weekend…" autofocus></textarea>
+      </div>`,
+      [
+        { label: 'Salta', variant: 'ghost', onClick: () => doSignal(productId, level, null) },
+        { label: 'Invia segnalazione', variant: 'primary', closeOnClick: false, onClick: async (close) => {
+          const notes = document.getElementById('signal-notes')?.value?.trim() || null;
+          close();
+          doSignal(productId, level, notes);
+        }},
+      ],
+    );
+  }
+
+  async function doSignal(productId, level, notes) {
+    if (state.pending.has(productId)) return;
     const prevSignaled = state.signaled.get(productId);
-    // Optimistic
     state.pending.add(productId);
     state.signaled.set(productId, level);
     renderList();
 
     try {
-      const created = await apiPost('/alerts', {
-        product_id: productId,
-        status_signaled: level,
-      });
-      // backend may have escalated (e.g. demote attempt → stays at higher level)
+      const body = { product_id: productId, status_signaled: level };
+      if (notes) body.notes = notes;
+      const created = await apiPost('/alerts', body);
       state.signaled.set(productId, created.status_signaled);
       state.pending.delete(productId);
       renderList();
       showToast('Inviata all\'amministrazione', 'success', 2500);
     } catch (err) {
-      // rollback
       state.pending.delete(productId);
       if (prevSignaled === undefined) state.signaled.delete(productId);
       else state.signaled.set(productId, prevSignaled);
