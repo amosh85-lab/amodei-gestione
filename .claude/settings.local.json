@@ -5,7 +5,12 @@
       "Bash(gh --version)",
       "Bash(gh auth *)",
       "Bash(git config *)",
-      "Bash(ssh -T git@github.com)"
+      "Bash(ssh -T git@github.com)",
+      "Bash(xargs ls -la)",
+      "Bash(git status *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }
