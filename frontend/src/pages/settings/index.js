@@ -13,6 +13,13 @@ import { icon } from '../../js/icons.js';
 import { userHasRole } from '../../js/auth.js';
 import { showToast, showModal, confirmDialog, skeletonList, parseNumberInput } from '../../js/components.js';
 import { openNumpad } from '../cash/modal-close-pos.js';
+import {
+  isPushSupported,
+  isSubscribed as isPushSubscribed,
+  pushPermission,
+  subscribePush,
+  unsubscribePush,
+} from '../../js/push.js';
 
 export async function mountSettings(container, _params, _query) {
   if (!userHasRole('admin')) {
@@ -74,6 +81,7 @@ export async function mountSettings(container, _params, _query) {
     }
     container.innerHTML = `
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 96px;">
+        ${renderPushCard()}
         ${renderCashFloatCard()}
         ${renderUsersCard()}
         ${renderCategoriesCard()}
@@ -82,6 +90,52 @@ export async function mountSettings(container, _params, _query) {
       </section>
     `;
     wire();
+    // La card push aggiorna il proprio stato in background (legge il
+    // permission + la subscription PushManager).
+    refreshPushCard();
+  }
+
+  function renderPushCard() {
+    const supported = isPushSupported();
+    const subTitle = supported
+      ? 'Ricevi un avviso quando viene inserito il parziale pranzo o chiusa la cassa serale.'
+      : 'Il tuo browser non supporta le push notifications. Su iPhone serve installare la PWA dalla schermata Home (iOS 16.4+).';
+    return `
+      <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-16);">
+        <p class="muted text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">Notifiche push</p>
+        <p class="muted text-sm" style="margin: var(--space-8) 0 var(--space-12) 0;">${escapeHtml(subTitle)}</p>
+        <div id="push-status" style="display: flex; justify-content: space-between; align-items: center; gap: var(--space-12);">
+          <span class="muted text-sm">Stato: <em>caricamento…</em></span>
+          <button type="button" id="push-toggle" class="btn btn--secondary btn--sm" disabled>…</button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function refreshPushCard() {
+    const wrap = container.querySelector('#push-status');
+    const btn  = container.querySelector('#push-toggle');
+    if (!wrap || !btn) return;
+
+    if (!isPushSupported()) {
+      wrap.innerHTML = `<span class="muted text-sm">Non disponibile su questo browser/dispositivo.</span>`;
+      btn.remove();
+      return;
+    }
+    const perm = pushPermission();
+    if (perm === 'denied') {
+      wrap.innerHTML = `<span class="muted text-sm">Permesso <strong>negato</strong> dal browser. Riattivalo dalle impostazioni del browser/iOS.</span>`;
+      btn.remove();
+      return;
+    }
+    const active = await isPushSubscribed().catch(() => false);
+    wrap.querySelector('span').innerHTML = active
+      ? `Attive ✓ <span class="muted text-xs">su questo dispositivo</span>`
+      : `Non attive su questo dispositivo`;
+    btn.disabled = false;
+    btn.textContent = active ? 'Disattiva' : 'Attiva';
+    btn.className   = active ? 'btn btn--ghost btn--sm' : 'btn btn--primary btn--sm';
+    btn.dataset.action = active ? 'unsubscribe' : 'subscribe';
   }
 
   function renderUsersCard() {
@@ -185,6 +239,25 @@ export async function mountSettings(container, _params, _query) {
   }
 
   function wire() {
+    const pushBtn = container.querySelector('#push-toggle');
+    if (pushBtn) pushBtn.addEventListener('click', async () => {
+      const action = pushBtn.dataset.action;
+      pushBtn.disabled = true;
+      try {
+        if (action === 'subscribe') {
+          await subscribePush();
+          showToast('Notifiche push attivate', 'success');
+        } else if (action === 'unsubscribe') {
+          await unsubscribePush();
+          showToast('Notifiche push disattivate', 'info');
+        }
+      } catch (err) {
+        showToast(err.message || 'Errore', 'danger', 5000);
+      } finally {
+        await refreshPushCard();
+      }
+    });
+
     const floatBtn = container.querySelector('#edit-float');
     if (floatBtn) floatBtn.addEventListener('click', openEditFloat);
 

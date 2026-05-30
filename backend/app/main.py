@@ -30,6 +30,7 @@ from app.routers import (
     payments as payments_router,
     pos_sessions as pos_sessions_router,
     products as products_router,
+    push as push_router,
     reports as reports_router,
     settings as settings_router,
     staff_meals as staff_meals_router,
@@ -157,6 +158,7 @@ app.include_router(foodcost_router.router)
 app.include_router(work_shifts_router.router)
 app.include_router(reports_router.router)
 app.include_router(forecast_router.router)
+app.include_router(push_router.router)
 app.include_router(metrics_router.router)
 
 # Persistent uploads (mounted on Railway as a Volume at /app/uploads). The

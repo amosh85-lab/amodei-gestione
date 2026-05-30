@@ -52,6 +52,7 @@ from app.models.staff_meals import (
     StaffMealItem,
     StaffMealParticipant,
 )
+from app.models.push import PushSubscription
 from app.models.users import User, UserRole
 from app.models.work_shifts import WorkShift
 
@@ -108,4 +109,6 @@ __all__ = [
     "AppSettingValueType",
     # work shifts
     "WorkShift",
+    # push notifications
+    "PushSubscription",
 ]

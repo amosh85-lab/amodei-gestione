@@ -9,7 +9,7 @@
 //     activated explicitly by the page (postMessage SKIP_WAITING). The page shows a toast
 //     "nuova versione, aggiorna" → user clicks → worker activates and the page reloads.
 
-const CACHE_VERSION = 'amodei-v0.4.0';
+const CACHE_VERSION = 'amodei-v0.5.0';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -69,6 +69,45 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// --- Web Push -----------------------------------------------------------
+//
+// Il backend invia un JSON {title, body, url, tag}. Su iOS PWA installata
+// (iOS 16.4+) la notifica viene mostrata anche con app chiusa.
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { /* keep empty */ }
+  const title = data.title || 'Amodei';
+  const options = {
+    body: data.body || '',
+    icon: '/public/icons/icon-192.png',
+    badge: '/public/icons/icon-96.png',
+    tag: data.tag || 'amodei-default',
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // Se c'è già una finestra dell'app aperta, fa focus + navigate
+    for (const client of all) {
+      if ('focus' in client && new URL(client.url).origin === self.location.origin) {
+        await client.focus();
+        if ('navigate' in client) {
+          try { await client.navigate(targetUrl); } catch { /* ignore */ }
+        }
+        return;
+      }
+    }
+    // Altrimenti apre una nuova finestra
+    if (self.clients.openWindow) await self.clients.openWindow(targetUrl);
+  })());
 });
 
 self.addEventListener('fetch', (event) => {

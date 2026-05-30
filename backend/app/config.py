@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     # Sample rate for transactions (performance traces); 0.0 = off.
     sentry_traces_sample_rate: float = 0.0
 
+    # --- web push (VAPID) ---
+    # Chiavi generate una tantum (vedi scripts/generate_vapid_keys.py).
+    # Se vuote, gli endpoint /push/* rispondono 503 e nessuna notifica viene
+    # inviata — il resto dell'app continua a funzionare normalmente.
+    vapid_public_key: str | None = None
+    vapid_private_key: str | None = None
+    vapid_subject: str = "mailto:amosh85@gmail.com"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         raw = self.allowed_origins.strip()
