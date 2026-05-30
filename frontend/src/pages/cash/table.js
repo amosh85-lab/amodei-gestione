@@ -105,6 +105,21 @@ export async function mountCashTable(container, _params, query) {
           </tr>
         `).join('');
 
+    const totLunch  = rows.reduce((a, s) => a + (s.partial_lunch  != null ? Number(s.partial_lunch)  : 0), 0);
+    const totDinner = rows.reduce((a, s) => a + (s.partial_dinner != null ? Number(s.partial_dinner) : 0), 0);
+    const totMonth  = rows.reduce((a, s) => a + (s.computed_total != null ? Number(s.computed_total) : 0), 0);
+
+    const foot = rows.length === 0 ? '' : `
+      <tfoot>
+        <tr style="background: var(--cream-soft); font-weight: 600;">
+          <td style="padding: var(--space-12); border: 1px solid var(--border-strong); font-family: var(--font-display); white-space: nowrap;">Totali mese</td>
+          <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums;">€ ${formatMoney(totLunch)}</td>
+          <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums;">€ ${formatMoney(totDinner)}</td>
+          <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums; color: var(--terracotta-dark);">€ ${formatMoney(totMonth)}</td>
+        </tr>
+      </tfoot>
+    `;
+
     return `
       <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
         <table style="width: 100%; border-collapse: collapse; background: var(--off-white); font-size: var(--text-sm);">
@@ -117,6 +132,7 @@ export async function mountCashTable(container, _params, query) {
             </tr>
           </thead>
           <tbody>${body}</tbody>
+          ${foot}
         </table>
       </div>
     `;
