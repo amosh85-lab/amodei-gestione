@@ -7,6 +7,7 @@
 
 import { apiGet } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
+import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
 import { skeletonList } from '../../js/components.js';
 
@@ -22,6 +23,10 @@ export async function mountCashStats(container, _params, _query) {
     title: 'Statistiche cassa',
     brand: true,
     backHref: '/cassa',
+    actions: [
+      { label: 'Storico', iconName: 'calendar', onClick: () => navigate('/cassa/storico') },
+      { label: 'Riepilogo', iconName: 'inventory', onClick: () => navigate('/cassa/riepilogo') },
+    ],
   });
 
   container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">${skeletonList(3)}</div>`;

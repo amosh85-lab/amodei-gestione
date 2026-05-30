@@ -29,6 +29,7 @@ export async function mountCashPage(container, _params, query) {
     backHref: '/',
     actions: [
       { label: 'Storico', iconName: 'calendar', onClick: () => navigate('/cassa/storico') },
+      { label: 'Riepilogo', iconName: 'inventory', onClick: () => navigate('/cassa/riepilogo') },
       { label: 'Statistiche', iconName: 'bar-chart', onClick: () => navigate('/cassa/statistiche') },
       { label: 'Acconti', iconName: 'users', onClick: () => navigate('/acconti') },
     ],

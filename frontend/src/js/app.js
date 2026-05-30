@@ -66,6 +66,7 @@ route('/riordini',            lazy('../pages/reorders/list.js',        'mountReo
 route('/riordini/nuovo',      lazy('../pages/reorders/edit.js',        'mountReorderEdit'),        { requires: ['admin', 'manager'] });
 route('/riordini/:id',        lazy('../pages/reorders/edit.js',        'mountReorderEdit'),        { requires: ['admin', 'manager'] });
 route('/cassa/storico',       lazy('../pages/cash/history.js',         'mountCashHistory'),        { requires: ['admin', 'manager'] });
+route('/cassa/riepilogo',     lazy('../pages/cash/table.js',           'mountCashTable'),          { requires: ['admin', 'manager'] });
 route('/cassa/statistiche',   lazy('../pages/cash/stats.js',           'mountCashStats'),          { requires: ['admin', 'manager'] });
 route('/report/sprechi',      lazy('../pages/reports/waste.js',        'mountReportsWaste'),       { requires: ['admin', 'manager'] });
 route('/report/margini',      lazy('../pages/reports/margins.js',      'mountReportsMargins'),     { requires: ['admin', 'manager'] });
