@@ -14,6 +14,7 @@ from app.models.cash import DailySummary
 from app.models.users import User
 from app.schemas.cash import DailySummaryOut, DailySummaryUpdate
 from app.services.cash import calculate_summary, get_cash_float
+from app.services.push import send_to_admins
 
 router = APIRouter(prefix="/daily-summary", tags=["daily-summary"])
 logger = logging.getLogger("amodei.daily_summary")
@@ -120,4 +121,36 @@ def update_summary(
         "DailySummary %s aggiornato by user_id=%d",
         day.isoformat(), user.id,
     )
-    return _attach_creator_names(session, calculate_summary(session, day))
+
+    summary = calculate_summary(session, day)
+
+    # Push notification quando si compila per la prima volta cash pranzo o
+    # cash cena (transizione null → valore). L'autore non riceve la propria
+    # notifica. Errori di invio non rompono la response.
+    try:
+        if introducing_lunch and summary.partial_lunch is not None:
+            send_to_admins(
+                session,
+                title="Parziale pranzo inserito",
+                body=f"€ {summary.partial_lunch:.2f} · da {user.full_name} ({day.strftime('%d/%m')})",
+                url=f"/cassa?date={day.isoformat()}&tab=lunch",
+                tag=f"cash-lunch-{day.isoformat()}",
+                exclude_user_id=user.id,
+            )
+        if introducing_dinner and summary.partial_dinner is not None:
+            total_str = (
+                f" · totale € {summary.computed_total:.2f}"
+                if summary.computed_total is not None else ""
+            )
+            send_to_admins(
+                session,
+                title="Cassa serata chiusa",
+                body=f"Parziale cena € {summary.partial_dinner:.2f}{total_str} · da {user.full_name} ({day.strftime('%d/%m')})",
+                url=f"/cassa?date={day.isoformat()}&tab=total",
+                tag=f"cash-dinner-{day.isoformat()}",
+                exclude_user_id=user.id,
+            )
+    except Exception:
+        logger.exception("Push send failed (non-fatal) for DailySummary %s", day.isoformat())
+
+    return _attach_creator_names(session, summary)
