@@ -258,7 +258,7 @@ const BONUS_THRESHOLD = 40000;
 const BONUS_STEP      = 5000;
 const BONUS_PER_TIER  = 250;
 const BONUS_ELIGIBLE_EMAILS = new Set([
-  'marco.sanarighi85@icloud.com',
+  'marco.sanarighi86@icloud.com',
 ]);
 
 function isBonusEligible(user) {
