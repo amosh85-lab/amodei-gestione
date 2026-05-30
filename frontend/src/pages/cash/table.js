@@ -92,7 +92,7 @@ export async function mountCashTable(container, _params, query) {
     const rows = summaries
       .filter((s) => s.partial_lunch != null || s.partial_dinner != null || s.computed_total != null)
       .slice()
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     const body = rows.length === 0
       ? `<tr><td colspan="4" style="padding: var(--space-16); text-align: center; color: var(--ink-muted);">Nessun dato per questo mese.</td></tr>`
