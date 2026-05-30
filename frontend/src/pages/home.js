@@ -85,6 +85,9 @@ function mountAdminHome(container, user) {
           </div>
         </div>
       </div>
+
+      <!-- ANDAMENTO INCASSI (WoW / MoM / YoY) -->
+      <div id="home-trends" style="margin-top: 12px;"></div>
     </div>
     ` : ''}
 
@@ -137,7 +140,10 @@ function mountAdminHome(container, user) {
   });
 
   // Async data loading
-  if (isAdmin) loadIncassoCard();
+  if (isAdmin) {
+    loadIncassoCard();
+    loadTrendsCard();
+  }
   loadNotifications(container);
 
   // Restore header when leaving
@@ -212,6 +218,114 @@ function getTotal(s) {
   if (!s) return null;
   const v = s.computed_total ?? s.fiscal_total ?? (Number(s.pos_total) > 0 ? s.pos_total : null);
   return v != null ? Number(v) : null;
+}
+
+// ---- Trends card data (WoW / MoM / YoY) ----
+
+async function loadTrendsCard() {
+  const slot = document.getElementById('home-trends');
+  if (!slot) return;
+
+  const today = new Date();
+  const todayStr = isoOf(today);
+  const thisYear = today.getFullYear();
+  const lastYearSameDay = new Date(thisYear - 1, today.getMonth(), today.getDate());
+  const firstThisYear = `${thisYear}-01-01`;
+  const firstLastYear = `${thisYear - 1}-01-01`;
+  const lastYearSameDayStr = isoOf(lastYearSameDay);
+
+  let curSummaries, prevYearSummaries;
+  try {
+    [curSummaries, prevYearSummaries] = await Promise.all([
+      apiGet(`/daily-summary?from=${firstThisYear}&to=${todayStr}&limit=365`),
+      apiGet(`/daily-summary?from=${firstLastYear}&to=${lastYearSameDayStr}&limit=365`),
+    ]);
+  } catch { return; }
+
+  // WoW: lunedì → oggi  vs  lunedì precedente → stesso giorno-della-settimana
+  const dow = (today.getDay() + 6) % 7;     // 0 = lun
+  const thisMon = addDays(today, -dow);
+  const lastMon = addDays(thisMon, -7);
+  const lastWeekSameDow = addDays(lastMon, dow);
+  const wowCurrent  = sumRange(curSummaries, isoOf(thisMon), todayStr);
+  const wowPrevious = sumRange(curSummaries, isoOf(lastMon), isoOf(lastWeekSameDow));
+
+  // MoM: 1° del mese → oggi  vs  1° del mese precedente → stesso giorno (o ultimo, se il mese prec è più corto)
+  const thisMonth1 = new Date(thisYear, today.getMonth(), 1);
+  const lastMonth1 = new Date(thisYear, today.getMonth() - 1, 1);
+  const lastMonthLastDayDate = new Date(thisYear, today.getMonth(), 0).getDate();
+  const lastMonthSameDay = new Date(
+    lastMonth1.getFullYear(), lastMonth1.getMonth(),
+    Math.min(today.getDate(), lastMonthLastDayDate),
+  );
+  const momCurrent  = sumRange(curSummaries, isoOf(thisMonth1), todayStr);
+  const momPrevious = sumRange(curSummaries, isoOf(lastMonth1), isoOf(lastMonthSameDay));
+
+  // YoY: 1° gen anno corrente → oggi  vs  1° gen anno scorso → stessa data
+  const yoyCurrent  = sumRange(curSummaries, firstThisYear, todayStr);
+  const yoyPrevious = sumRange(prevYearSummaries, firstLastYear, lastYearSameDayStr);
+
+  slot.innerHTML = `
+    <div style="background: var(--off-white); border-radius: 16px; box-shadow: 0 4px 24px rgba(42,31,26,0.10); padding: 16px 20px;">
+      <p style="margin: 0 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Andamento incassi</p>
+      <div style="display: grid; gap: 12px;">
+        ${trendRow('Questa settimana', wowCurrent, wowPrevious, 'vs settimana precedente')}
+        ${trendRow('Questo mese', momCurrent, momPrevious, 'vs mese precedente')}
+        ${trendRow('Anno in corso', yoyCurrent, yoyPrevious, 'vs anno precedente')}
+      </div>
+    </div>
+  `;
+}
+
+function trendRow(label, current, previous, vsLabel) {
+  const hasPrev = previous > 0;
+  const diff = current - previous;
+  const pct = hasPrev ? (diff / previous) * 100 : null;
+  const positive = diff >= 0;
+  const color = positive ? 'var(--bottle-green)' : 'var(--terracotta-dark)';
+  const arrow = positive ? '▲' : '▼';
+  const sign = positive ? '+' : '−';
+  const absDiff = Math.abs(diff);
+  const deltaText = !hasPrev
+    ? `<span style="color: var(--ink-muted); font-size: 12px;">nessun dato comparabile</span>`
+    : `<span style="color: ${color}; font-weight: 600; font-size: 13px;">${arrow} ${sign}€&nbsp;${fmtThousands(absDiff)}</span>
+       <span style="color: ${color}; font-weight: 500; font-size: 13px; margin-left: 6px;">(${sign}${Math.abs(pct).toFixed(1).replace('.', ',')}%)</span>
+       <span style="color: var(--ink-muted); font-size: 12px; margin-left: 6px;">${esc(vsLabel)}</span>`;
+  return `
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px;">
+        <span style="font-size: 13px; color: var(--ink-muted); font-weight: 500;">${esc(label)}</span>
+        <span class="font-display" style="font-size: 1.3rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;">€&nbsp;${fmtThousands(current)}</span>
+      </div>
+      <div style="margin-top: 2px;">${deltaText}</div>
+    </div>
+  `;
+}
+
+function isoOf(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function addDays(d, n) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+function sumRange(summaries, fromStr, toStr) {
+  let acc = 0;
+  for (const s of summaries) {
+    if (s.date < fromStr || s.date > toStr) continue;
+    const t = getTotal(s);
+    if (t != null) acc += t;
+  }
+  return acc;
+}
+
+function fmtThousands(n) {
+  const parts = Number(n).toFixed(2).split('.');
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${intPart},${parts[1]}`;
 }
 
 function computeWeekAvg(byDate, today) {
