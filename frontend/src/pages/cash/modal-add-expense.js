@@ -37,6 +37,7 @@ export async function openAddExpenseModal({ service, date, onCreated }) {
   let close = null;
 
   function render() {
+    if (close) close();
     const body = `
       <form id="ae-form" class="stack-16" onsubmit="return false">
         <!-- Amount field (opens numpad on tap) -->

@@ -2,7 +2,7 @@
 
 Inserts the bare minimum needed to bootstrap the app:
   - one ``admin`` user (email + password from interactive prompts)
-  - five expense categories
+  - six expense categories
   - one app setting (``cash_float`` default = 100.00)
 
 Safe to re-run: every insert checks for an existing row first and skips it.
@@ -40,6 +40,7 @@ EXPENSE_CATEGORIES: list[tuple[str, str, str]] = [
     ("Bevande",          "wine",    "#B5391F"),
     ("Materiali",        "package", "#8A7A6E"),
     ("Utenze",           "zap",     "#D4A155"),
+    ("Extra",            "star",    "#A24E2A"),
     ("Varie",            "ellipsis","#2A1F1A"),
 ]
 

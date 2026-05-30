@@ -177,16 +177,37 @@ export async function mountCashPage(container, _params, query) {
     const partialValue  = s[partialField];
     const cashIncassato = isLunch ? s.cash_lunch_incassato : s.cash_dinner_incassato;
 
+    const partialCard = partialValue != null ? `
+        <div class="card card--inset" style="background: var(--cream-soft); border: 2px solid var(--terracotta);">
+          <p class="muted text-xs uppercase" style="margin:0; letter-spacing: var(--letter-spacing-wide);">Parziale ${escapeHtml(label.toLowerCase())}</p>
+          <p class="font-display" style="margin: var(--space-8) 0 0 0; font-size: 2.5rem; color: var(--terracotta); line-height: 1;">€ ${formatMoney(partialValue)}</p>
+          <p class="muted text-xs" style="margin: var(--space-8) 0 0 0;">
+            POS € ${formatMoney(pos ? pos.closing_amount : 0)}
+            + cash incassato € ${formatMoney(cashIncassato || 0)}
+            <em>(spese ${escapeHtml(label.toLowerCase())} reincorporate)</em>
+          </p>
+        </div>
+      ` : `
+        <div class="card card--inset" style="background: var(--cream-soft); border: 2px dashed var(--border-strong);">
+          <p class="muted text-xs uppercase" style="margin:0; letter-spacing: var(--letter-spacing-wide);">Parziale ${escapeHtml(label.toLowerCase())}</p>
+          <p class="font-display" style="margin: var(--space-8) 0 0 0; font-size: 2.5rem; color: var(--ink-muted); line-height: 1; opacity: 0.55;">€ —</p>
+          <p class="muted text-xs" style="margin: var(--space-8) 0 0 0;">Compila il cash extra fondo per calcolare il totale.</p>
+        </div>
+      `;
+
     return `
+      <!-- Partial summary on top -->
+      ${partialCard}
+
       <!-- POS card -->
-      <div class="card stack-12">
+      <div class="card stack-12" style="margin-top: var(--space-16);">
         <div class="row" style="justify-content: space-between;">
           <p class="card__meta" style="margin:0;">POS ${escapeHtml(label)}</p>
           <span class="pill ${pos ? 'pill--success' : ''}" style="white-space:nowrap;">
             ${pos ? 'chiusa' : 'aperta'}
           </span>
         </div>
-        <p class="font-display" style="margin:0; font-size: 3rem; line-height: 1;">${pos ? `€ ${formatMoney(pos.closing_amount)}` : '€ 0,00'}</p>
+        <p class="font-display" style="margin:0; font-size: 2rem; line-height: 1;">${pos ? `€ ${formatMoney(pos.closing_amount)}` : '€ 0,00'}</p>
         ${pos
           ? `<div class="row" style="gap: var(--space-8);">
               <p class="muted text-xs" style="margin:0; flex:1;">Chiusa da ${escapeHtml(pos.closed_by_name || '—')} alle ${formatTime(pos.closed_at)}</p>
@@ -227,19 +248,6 @@ export async function mountCashPage(container, _params, query) {
           ${cashValue != null ? `€ ${formatMoney(cashValue)}` : '<span style="opacity: 0.55; font-style: italic; font-size: 1.2rem;">tap per inserire</span>'}
         </button>
       </div>
-
-      <!-- Partial summary (only if cash is set) -->
-      ${partialValue != null ? `
-        <div class="card card--inset" style="margin-top: var(--space-16); background: var(--cream-soft); border: 2px solid var(--terracotta);">
-          <p class="muted text-xs uppercase" style="margin:0; letter-spacing: var(--letter-spacing-wide);">Parziale ${escapeHtml(label.toLowerCase())}</p>
-          <p class="font-display" style="margin: var(--space-8) 0 0 0; font-size: 2.5rem; color: var(--terracotta); line-height: 1;">€ ${formatMoney(partialValue)}</p>
-          <p class="muted text-xs" style="margin: var(--space-8) 0 0 0;">
-            POS € ${formatMoney(pos ? pos.closing_amount : 0)}
-            + cash incassato € ${formatMoney(cashIncassato || 0)}
-            <em>(spese ${escapeHtml(label.toLowerCase())} reincorporate)</em>
-          </p>
-        </div>
-      ` : ''}
     `;
   }
 
