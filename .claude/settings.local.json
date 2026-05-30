@@ -15,7 +15,12 @@
       "Bash(node --check /Users/amoshalfon/Documents/GitHub/amodei/frontend/src/pages/cash/history.js)",
       "Bash(python3 -m http.server 5500)",
       "Bash(curl *)",
-      "Bash(python3 -m http.server 5501)"
+      "Bash(python3 -m http.server 5501)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/python *)",
+      "Bash(.venv/bin/alembic current *)",
+      "Bash(.venv/bin/alembic heads *)"
     ]
   }
 }
