@@ -26,12 +26,42 @@ export async function mountPayrollDashboard(container, _params, query) {
 
   async function load() {
     try {
-      state.data = await apiGet(`/work-shifts/monthly-payroll?year=${state.year}&month=${state.month}`);
+      const monthlyRange = monthIso(state.year, state.month);
+      const [payroll, summaries] = await Promise.all([
+        apiGet(`/work-shifts/monthly-payroll?year=${state.year}&month=${state.month}`),
+        apiGet(`/daily-summary?from=${monthlyRange.from}&to=${monthlyRange.to}&limit=365`).catch(() => []),
+      ]);
+      const monthlyRevenue = summaries.reduce((acc, s) => acc + (summaryRevenue(s) ?? 0), 0);
+      applyManagerBonus(payroll, monthlyRevenue);
+      state.data = payroll;
+      state.monthlyRevenue = monthlyRevenue;
       render();
     } catch (err) {
       container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">
         <div class="alert alert--urgent"><span class="alert__icon">${icon('alert', { size: 22 })}</span>
           <div class="alert__body"><strong>Errore</strong><p class="alert__text">${escapeHtml(err.message || '')}</p></div></div></div>`;
+    }
+  }
+
+  // Bonus manager: dopo i 40.000 € di incasso mensile, +250 €. Ogni 5.000 €
+  // sopra la soglia, altri 250 €. Calcolato e aggiunto al netto in busta SOLO
+  // per gli utenti con role === 'manager'.
+  function applyManagerBonus(payroll, monthlyRevenue) {
+    const bonus = managerBonus(monthlyRevenue);
+    let bonusAdded = 0;
+    for (const r of payroll.by_user) {
+      r.bonus_amount = 0;
+      if (r.user.role !== 'manager' || r.needs_configuration) continue;
+      r.bonus_amount = bonus;
+      if (bonus > 0 && r.net_to_pay != null) {
+        r.net_to_pay = Number(r.net_to_pay) + bonus;
+        r.gross_amount = (Number(r.gross_amount) || 0) + bonus;
+        bonusAdded += bonus;
+      }
+    }
+    if (bonusAdded > 0) {
+      payroll.totals.total_gross = Number(payroll.totals.total_gross || 0) + bonusAdded;
+      payroll.totals.total_net   = Number(payroll.totals.total_net   || 0) + bonusAdded;
     }
   }
 
@@ -120,13 +150,25 @@ export async function mountPayrollDashboard(container, _params, query) {
     const grossLabel = isFixed
       ? `Fisso mensile`
       : `Lordo (${formatHours(r.total_hours)} × ${fmt(u.hourly_rate)})`;
+    // Bonus manager: la voce "Lordo (X h × Y)" mostra il lordo CON bonus
+    // incluso (vedi applyManagerBonus); separiamo la riga bonus per chiarezza.
+    const hasBonus = Number(r.bonus_amount) > 0;
+    const bonusLine = hasBonus ? `
+      <div class="row" style="justify-content: space-between;">
+        <span class="muted">Bonus incasso <span class="text-xs">(${managerBonusLabel(state.monthlyRevenue)})</span></span>
+        <span style="font-family: var(--font-display); color: var(--bottle-green, #4f8e3a);">+ € ${fmt(r.bonus_amount)}</span>
+      </div>` : '';
+    // Quando c'è il bonus, mostro il lordo base (senza bonus) accanto, così
+    // l'utente vede da dove parte e cosa si aggiunge.
+    const baseGross = hasBonus ? Number(r.gross_amount) - Number(r.bonus_amount) : Number(r.gross_amount);
     return `
       <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-12);">
         <p style="margin: 0; font-weight: 600;">${escapeHtml(u.full_name)}</p>
         <p class="muted text-xs" style="margin: 2px 0 var(--space-12) 0;">${rateLabel}</p>
         <div style="display: grid; gap: var(--space-4); font-size: var(--text-sm);">
           <div class="row" style="justify-content: space-between;"><span class="muted">Ore lavorate</span><span style="font-family: var(--font-display);">${formatHours(r.total_hours)} h</span></div>
-          <div class="row" style="justify-content: space-between;"><span class="muted">${grossLabel}</span><span style="font-family: var(--font-display);">€ ${fmt(r.gross_amount)}</span></div>
+          <div class="row" style="justify-content: space-between;"><span class="muted">${grossLabel}</span><span style="font-family: var(--font-display);">€ ${fmt(baseGross)}</span></div>
+          ${bonusLine}
           <div class="row" style="justify-content: space-between;"><span class="muted">Acconti del mese${unsettledBadge}</span><span style="font-family: var(--font-display); color: var(--terracotta-dark);">− € ${fmt(r.advances_taken)}</span></div>
         </div>
         <div style="border-top: 2px solid var(--ink); margin-top: var(--space-12); padding-top: var(--space-12);">
@@ -207,6 +249,39 @@ function countAdvances(r) {
   // Approssimazione: non abbiamo il count esatto qui, ma il backend ce lo
   // restituisce in settled_count nel response al POST.
   return r.has_unsettled_advances ? '' : '';
+}
+
+// ---- Manager bonus -----------------------------------------------------
+// Soglia 40.000 €/mese: scatta 250 €. Ogni 5.000 € sopra soglia: altri 250 €.
+const BONUS_THRESHOLD = 40000;
+const BONUS_STEP      = 5000;
+const BONUS_PER_TIER  = 250;
+
+function managerBonus(monthlyRevenue) {
+  const rev = Number(monthlyRevenue) || 0;
+  if (rev < BONUS_THRESHOLD) return 0;
+  const tiers = Math.floor((rev - BONUS_THRESHOLD) / BONUS_STEP) + 1;
+  return tiers * BONUS_PER_TIER;
+}
+
+function managerBonusLabel(monthlyRevenue) {
+  const rev = Number(monthlyRevenue) || 0;
+  if (rev < BONUS_THRESHOLD) return `sotto soglia 40k`;
+  const tiers = Math.floor((rev - BONUS_THRESHOLD) / BONUS_STEP) + 1;
+  return `${tiers} × 250 € · incassi € ${fmt(rev)}`;
+}
+
+function summaryRevenue(s) {
+  if (!s) return null;
+  const v = s.computed_total ?? s.fiscal_total ?? (Number(s.pos_total) > 0 ? s.pos_total : null);
+  return v != null ? Number(v) : null;
+}
+
+function monthIso(year, month /* 1-indexed */) {
+  const first = new Date(year, month - 1, 1);
+  const last  = new Date(year, month, 0);
+  const f = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { from: f(first), to: f(last) };
 }
 
 function fmt(v) { const n = Number(v); return Number.isNaN(n) ? '0,00' : n.toFixed(2).replace('.', ','); }
