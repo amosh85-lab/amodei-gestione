@@ -55,11 +55,12 @@ export async function mountCashTable(container, _params, query) {
       }
     }
 
+    const { daysInMonth } = monthRange(state.year, state.month);
     container.innerHTML = `
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 96px;">
         ${renderSummaryStrip(totalMonth, daysWithIncome)}
         ${renderMonthNav(state.year, state.month)}
-        ${renderTable(state.summaries)}
+        ${renderTable(state.summaries, daysInMonth)}
       </section>
     `;
     wire();
@@ -88,7 +89,7 @@ export async function mountCashTable(container, _params, query) {
     `;
   }
 
-  function renderTable(summaries) {
+  function renderTable(summaries, daysInMonth) {
     const rows = summaries
       .filter((s) => s.partial_lunch != null || s.partial_dinner != null || s.computed_total != null)
       .slice()
@@ -105,17 +106,46 @@ export async function mountCashTable(container, _params, query) {
           </tr>
         `).join('');
 
-    const totLunch  = rows.reduce((a, s) => a + (s.partial_lunch  != null ? Number(s.partial_lunch)  : 0), 0);
-    const totDinner = rows.reduce((a, s) => a + (s.partial_dinner != null ? Number(s.partial_dinner) : 0), 0);
-    const totMonth  = rows.reduce((a, s) => a + (s.computed_total != null ? Number(s.computed_total) : 0), 0);
+    // Conteggi e somme per colonna: la media usa il numero di giorni in cui
+    // quella SPECIFICA colonna ha un valore (non i giorni totali del mese,
+    // così un servizio mai compilato non si "diluisce" sui giorni morti).
+    let totLunch = 0, totDinner = 0, totMonth = 0;
+    let cntLunch = 0, cntDinner = 0, cntMonth = 0;
+    for (const s of rows) {
+      if (s.partial_lunch  != null) { totLunch  += Number(s.partial_lunch);  cntLunch  += 1; }
+      if (s.partial_dinner != null) { totDinner += Number(s.partial_dinner); cntDinner += 1; }
+      if (s.computed_total != null) { totMonth  += Number(s.computed_total); cntMonth  += 1; }
+    }
+    const avgLunch  = cntLunch  > 0 ? totLunch  / cntLunch  : 0;
+    const avgDinner = cntDinner > 0 ? totDinner / cntDinner : 0;
+    const avgMonth  = cntMonth  > 0 ? totMonth  / cntMonth  : 0;
+    const projLunch  = avgLunch  * daysInMonth;
+    const projDinner = avgDinner * daysInMonth;
+    const projMonth  = avgMonth  * daysInMonth;
+
+    const tdHead  = 'padding: var(--space-12); border: 1px solid var(--border-strong); font-family: var(--font-display); white-space: nowrap;';
+    const tdNum   = 'padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums;';
+    const tdNumHi = tdNum + ' color: var(--terracotta-dark);';
 
     const foot = rows.length === 0 ? '' : `
       <tfoot>
         <tr style="background: var(--cream-soft); font-weight: 600;">
-          <td style="padding: var(--space-12); border: 1px solid var(--border-strong); font-family: var(--font-display); white-space: nowrap;">Totali mese</td>
-          <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums;">€ ${formatMoney(totLunch)}</td>
-          <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums;">€ ${formatMoney(totDinner)}</td>
-          <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums; color: var(--terracotta-dark);">€ ${formatMoney(totMonth)}</td>
+          <td style="${tdHead}">Totali mese</td>
+          <td style="${tdNum}">€ ${formatMoney(totLunch)}</td>
+          <td style="${tdNum}">€ ${formatMoney(totDinner)}</td>
+          <td style="${tdNumHi}">€ ${formatMoney(totMonth)}</td>
+        </tr>
+        <tr style="background: var(--cream-soft);">
+          <td style="${tdHead}">Media <span class="muted text-xs">(${cntMonth} ${cntMonth === 1 ? 'giorno' : 'giorni'})</span></td>
+          <td style="${tdNum}">€ ${formatMoney(avgLunch)}</td>
+          <td style="${tdNum}">€ ${formatMoney(avgDinner)}</td>
+          <td style="${tdNumHi}">€ ${formatMoney(avgMonth)}</td>
+        </tr>
+        <tr style="background: var(--cream-soft); border-top: 2px solid var(--terracotta);">
+          <td style="${tdHead}">Proiezione mese <span class="muted text-xs">(× ${daysInMonth} gg)</span></td>
+          <td style="${tdNum}">€ ${formatMoney(projLunch)}</td>
+          <td style="${tdNum}">€ ${formatMoney(projDinner)}</td>
+          <td style="${tdNumHi}">€ ${formatMoney(projMonth)}</td>
         </tr>
       </tfoot>
     `;
@@ -163,7 +193,7 @@ function monthRange(year, month /* 0-indexed */) {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
   const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return { from: fmt(first), to: fmt(last) };
+  return { from: fmt(first), to: fmt(last), daysInMonth: last.getDate() };
 }
 
 function humanDay(iso) {
