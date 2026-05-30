@@ -146,13 +146,15 @@ class DailySummaryOut(BaseModel):
     partial_lunch: Decimal | None = None           # pos_lunch + cash_lunch_incassato
 
     # Dinner close (input) + derived partial
+    # NB: cash_dinner_above_float è CUMULATIVO (tutto il cash a fine giornata,
+    # sopra il fondo) → include già il cash del pranzo.
     cash_dinner_above_float: Decimal | None = None
-    cash_dinner_incassato: Decimal | None = None   # above_float_dinner + expenses_dinner
+    cash_dinner_incassato: Decimal | None = None   # (dinner_above − lunch_above) + expenses_dinner + advances_dinner
     partial_dinner: Decimal | None = None          # pos_dinner + cash_dinner_incassato
 
-    # Totals (available once at least one cash input is set)
-    cash_above_float: Decimal | None = None     # lunch + dinner above (treating missing as 0)
-    cash_incassato: Decimal | None = None       # above_float + expenses_total
+    # Totals (available once BOTH cash inputs are set)
+    cash_above_float: Decimal | None = None     # = cash_dinner_above_float (snapshot fine serata, NON la somma)
+    cash_incassato: Decimal | None = None       # cash_above_float + expenses_total + advances_total
     computed_total: Decimal | None = None       # pos_total + cash_incassato
 
     fiscal_total: Decimal | None = None

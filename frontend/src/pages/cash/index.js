@@ -171,7 +171,7 @@ export async function mountCashPage(container, _params, query) {
     const cashLabel     = isLunch ? 'Cash extra fondo a fine pranzo' : 'Cash extra fondo a fine serata';
     const cashSub       = isLunch
       ? 'Tutto il contante presente in cassa MENO il fondo, a fine servizio pranzo.'
-      : 'Tutto il contante presente in cassa MENO il fondo, a fine serata.';
+      : 'Tutto il contante presente in cassa MENO il fondo, a fine serata (include già quello del pranzo).';
     const cashValue     = s[cashField];
     const partialField  = isLunch ? 'partial_lunch' : 'partial_dinner';
     const partialValue  = s[partialField];
@@ -183,8 +183,10 @@ export async function mountCashPage(container, _params, query) {
           <p class="font-display" style="margin: var(--space-8) 0 0 0; font-size: 2.5rem; color: var(--terracotta); line-height: 1;">€ ${formatMoney(partialValue)}</p>
           <p class="muted text-xs" style="margin: var(--space-8) 0 0 0;">
             POS € ${formatMoney(pos ? pos.closing_amount : 0)}
-            + cash incassato € ${formatMoney(cashIncassato || 0)}
-            <em>(spese ${escapeHtml(label.toLowerCase())} reincorporate)</em>
+            + cash netto ${escapeHtml(label.toLowerCase())} € ${formatMoney(cashIncassato || 0)}
+            ${isLunch
+              ? `<em>(spese pranzo reincorporate)</em>`
+              : `<em>(cash fine serata − cash fine pranzo + spese cena reincorporate)</em>`}
           </p>
         </div>
       ` : `
@@ -357,10 +359,52 @@ export async function mountCashPage(container, _params, query) {
           ${darkRow('Fondo cassa', `€ ${formatMoney(s.cash_float)}`, 'snapshot informativo, non entra nei calcoli')}
         </div>
 
+        ${renderDarkExpensesDetail(state.expenses)}
+
         <div style="margin-top: var(--space-16); padding-top: var(--space-16); border-top: 1px solid rgba(255,255,255,0.15);">
           ${darkCheckRow('Totale fiscale', s.fiscal_total, s.delta_fiscal, 'fiscal_total', 'fiscal')}
           ${darkCheckRow('Totale Ipratico', s.ipratico_total, s.delta_ipratico, 'ipratico_total', 'ipratico')}
         </div>
+      </div>
+    `;
+  }
+
+  function renderDarkExpensesDetail(expenses) {
+    if (!expenses || expenses.length === 0) return '';
+    const lunchList  = expenses.filter((e) => e.service === 'lunch');
+    const dinnerList = expenses.filter((e) => e.service === 'dinner');
+    const lunchTot   = lunchList.reduce((acc, e) => acc + Number(e.amount), 0);
+    const dinnerTot  = dinnerList.reduce((acc, e) => acc + Number(e.amount), 0);
+    const total      = lunchTot + dinnerTot;
+
+    const groupBlock = (title, list, tot) => list.length === 0 ? '' : `
+      <div style="margin-top: var(--space-12);">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: var(--space-4); border-bottom: 1px dashed rgba(255,255,255,0.12);">
+          <span style="font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); opacity: 0.75;">${escapeHtml(title)} (${list.length})</span>
+          <span style="font-family: var(--font-display); color: inherit;">− € ${formatMoney(tot)}</span>
+        </div>
+        ${list.map(darkExpenseLine).join('')}
+      </div>
+    `;
+
+    return `
+      <div style="margin-top: var(--space-16); padding-top: var(--space-16); border-top: 1px solid rgba(255,255,255,0.15);">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <span style="font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); opacity: 0.75;">Dettaglio spese (${expenses.length})</span>
+          <span style="font-family: var(--font-display); color: inherit;">− € ${formatMoney(total)}</span>
+        </div>
+        ${groupBlock('Pranzo', lunchList, lunchTot)}
+        ${groupBlock('Cena', dinnerList, dinnerTot)}
+      </div>
+    `;
+  }
+
+  function darkExpenseLine(e) {
+    const cat = e.category?.name ? `<span style="opacity: 0.6;"> · ${escapeHtml(e.category.name)}</span>` : '';
+    return `
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-12); padding: var(--space-4) 0; font-size: var(--text-sm);">
+        <span style="min-width: 0; flex: 1 1 auto; color: inherit; opacity: 0.95;">${escapeHtml(e.description)}${cat}</span>
+        <span style="font-family: var(--font-display); color: inherit; white-space: nowrap; font-variant-numeric: tabular-nums;">− € ${formatMoney(e.amount)}</span>
       </div>
     `;
   }

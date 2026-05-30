@@ -5,20 +5,20 @@ plus the Prompt 18.x advances additive):
 
     POS pranzo     = 312,00 €    POS cena       = 535,50 €
     Spese pranzo   = 33,00 €     Spese cena     = 32,80 €
-    cash_lunch_above_float  = 280,00 €
-    cash_dinner_above_float = 250,00 €
+    cash_lunch_above_float  = 280,00 €  (snapshot fine pranzo, sopra fondo)
+    cash_dinner_above_float = 530,00 €  (CUMULATIVO a fine giornata, sopra fondo)
     Acconto Marco (staff, pranzo) = 50,00 €
     Acconto Sara  (staff, cena)   = 100,00 €
 
 Attesi:
     advances_total = 150,00 €
-    cash_lunch_incassato  = 280 + 33 + 50            = 363,00 €
-    partial_lunch         = 312 + 363                = 675,00 €
-    cash_dinner_incassato = 250 + 32,80 + 100        = 382,80 €
-    partial_dinner        = 535,50 + 382,80          = 918,30 €
-    cash_above_float      = 280 + 250                = 530,00 €
-    cash_incassato        = 530 + 65,80 + 150        = 745,80 €
-    computed_total        = 847,50 + 745,80          = 1.593,30 €
+    cash_lunch_incassato  = 280 + 33 + 50              = 363,00 €
+    partial_lunch         = 312 + 363                  = 675,00 €
+    cash_dinner_incassato = (530−280) + 32,80 + 100    = 382,80 €
+    partial_dinner        = 535,50 + 382,80            = 918,30 €
+    cash_above_float      = 530 (snapshot fine serata) = 530,00 €
+    cash_incassato        = 530 + 65,80 + 150          = 745,80 €
+    computed_total        = 847,50 + 745,80            = 1.593,30 €
     Invariante: partial_lunch + partial_dinner == computed_total
 
 (*) NB: il prompt usa la math vecchia "stesso totale di 1176" che presuppone
@@ -231,11 +231,12 @@ def main():
             assert_status(s, 201, f"expense {descr}", e)
             expense_ids.append(e["id"])
 
-        # 9) PATCH cash_lunch_above_float = 280 + cash_dinner_above_float = 250
+        # 9) PATCH cash_lunch_above_float = 280 + cash_dinner_above_float = 530
+        # (530 è il cash CUMULATIVO a fine giornata, sopra il fondo).
         step(9, "PATCH cash above lunch/dinner")
         s, summary = http_call("PATCH", f"{base}/daily-summary/{today}",
                                 body={"cash_lunch_above_float": "280.00",
-                                      "cash_dinner_above_float": "250.00"},
+                                      "cash_dinner_above_float": "530.00"},
                                 token=admin_token)
         assert_status(s, 200, "patch cash", summary)
 
@@ -249,9 +250,9 @@ def main():
             ("advances_total",        150.00),
             ("cash_lunch_incassato",  363.00),   # 280 + 33 + 50
             ("partial_lunch",         675.00),   # 312 + 363
-            ("cash_dinner_incassato", 382.80),   # 250 + 32,80 + 100
+            ("cash_dinner_incassato", 382.80),   # (530−280) + 32,80 + 100
             ("partial_dinner",        918.30),   # 535,50 + 382,80
-            ("cash_above_float",      530.00),   # 280 + 250
+            ("cash_above_float",      530.00),   # snapshot fine serata
             ("cash_incassato",        745.80),   # 530 + 65,80 + 150
             ("computed_total",        1593.30),  # 847,50 + 745,80
         ]

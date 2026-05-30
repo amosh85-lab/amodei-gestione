@@ -140,10 +140,13 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
     fiscal = _q(summary_row.fiscal_total) if summary_row and summary_row.fiscal_total is not None else None
     ipratico = _q(summary_row.ipratico_total) if summary_row and summary_row.ipratico_total is not None else None
 
-    # Both cash inputs are NETTO (above-float, ≥ 0). The float is never part
-    # of any calculation — it's only an informational snapshot.
-    # Both expenses AND employee advances LEFT the drawer during the service,
-    # so they need to be added back to reconstruct the gross cash income.
+    # Both cash inputs are CUMULATIVE snapshots above-float (≥ 0):
+    #   cash_lunch_above_float  = TUTTO il contante in cassa meno fondo, a fine pranzo
+    #   cash_dinner_above_float = TUTTO il contante in cassa meno fondo, a fine serata
+    # Quindi cash_dinner_above include già il contante presente a fine pranzo:
+    # NON si sommano fra loro. Il cash netto incassato durante la cena si
+    # ottiene per differenza (più le uscite cash della cena, reincorporate).
+    # Il float non entra mai nei calcoli — è solo uno snapshot informativo.
     if cash_lunch_above is not None:
         cash_lunch_incassato = _q(cash_lunch_above + expenses_lunch + advances_lunch)
         partial_lunch = _q(pos_lunch + cash_lunch_incassato)
@@ -152,17 +155,22 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
         partial_lunch = None
 
     if cash_dinner_above is not None:
-        cash_dinner_incassato = _q(cash_dinner_above + expenses_dinner + advances_dinner)
+        # Baseline = cash a fine pranzo (0 se non ancora compilato).
+        cash_lunch_baseline = cash_lunch_above if cash_lunch_above is not None else ZERO
+        cash_dinner_incassato = _q(
+            cash_dinner_above - cash_lunch_baseline + expenses_dinner + advances_dinner
+        )
         partial_dinner = _q(pos_dinner + cash_dinner_incassato)
     else:
         cash_dinner_incassato = None
         partial_dinner = None
 
-    # Aggregate totals: available once BOTH cash inputs are set (otherwise the
-    # day isn't fully counted yet).
+    # Aggregate totals: available once BOTH cash inputs are set (così abbiamo
+    # entrambi i parziali). cash_dinner_above è già il totale a fine giornata,
+    # quindi NON si somma a cash_lunch_above.
     if cash_lunch_above is not None and cash_dinner_above is not None:
-        cash_above_float = _q(cash_lunch_above + cash_dinner_above)
-        cash_incassato = _q(cash_above_float + expenses_total + advances_total)
+        cash_above_float = cash_dinner_above
+        cash_incassato = _q(cash_dinner_above + expenses_total + advances_total)
         computed_total = _q(pos_total + cash_incassato)
     else:
         cash_above_float = None

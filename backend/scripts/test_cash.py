@@ -240,17 +240,18 @@ def main():
               f"cash_lunch_incassato={summary['cash_lunch_incassato']} · "
               f"snapshot cash_float={summary['cash_float']}")
 
-        # 9b) PATCH cash_dinner_above_float = 250 → tutti i partial + computed
-        step(10, "PATCH cash_dinner_above_float = 250 → partial_dinner=818,30, computed=1.443,30")
+        # 9b) PATCH cash_dinner_above_float = 530 (cash CUMULATIVO a fine giornata,
+        # include il cash a fine pranzo) → tutti i partial + computed
+        step(10, "PATCH cash_dinner_above_float = 530 → partial_dinner=818,30, computed=1.443,30")
         s, summary = http_call("PATCH", f"{base}/daily-summary/{today}",
-                                body={"cash_dinner_above_float": "250.00"}, token=token)
+                                body={"cash_dinner_above_float": "530.00"}, token=token)
         assert_status(s, 200, "patch dinner cash", summary)
-        # cash_dinner_incassato = 250 + 32,80 = 282,80
+        # cash_dinner_incassato = (530 − 280) + 32,80 = 282,80
         # partial_dinner = 535,50 + 282,80 = 818,30
-        # cash_above_float = 280 + 250 = 530
+        # cash_above_float = 530 (snapshot fine giornata, NON la somma)
         # cash_incassato totale = 530 + 65,80 = 595,80
         # computed_total = 847,50 + 595,80 = 1.443,30
-        for k, expected in [("cash_dinner_above_float", 250.00),
+        for k, expected in [("cash_dinner_above_float", 530.00),
                             ("cash_dinner_incassato", 282.80),
                             ("partial_dinner", 818.30),
                             ("cash_above_float", 530.00),
