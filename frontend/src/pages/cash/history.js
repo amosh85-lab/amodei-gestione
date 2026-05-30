@@ -70,9 +70,47 @@ export async function mountCashHistory(container, _params, query) {
         ${renderMonthNav(state.year, state.month)}
         ${renderCalendar(state.year, state.month, byDay)}
         ${renderLegend()}
+        ${renderHistoryTable(state.summaries)}
       </section>
     `;
     wire();
+  }
+
+  function renderHistoryTable(summaries) {
+    const rows = summaries
+      .filter((s) => s.partial_lunch != null || s.partial_dinner != null || s.computed_total != null)
+      .slice()
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    const body = rows.length === 0
+      ? `<tr><td colspan="4" style="padding: var(--space-16); text-align: center; color: var(--ink-muted);">Nessun dato per questo mese.</td></tr>`
+      : rows.map((s) => `
+          <tr data-row-day="${s.date}" style="cursor: pointer;">
+            <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-transform: capitalize; white-space: nowrap;">${escapeHtml(humanDay(s.date))}</td>
+            <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums;">${s.partial_lunch != null ? `€ ${formatMoney(s.partial_lunch)}` : '<span style="color: var(--ink-muted);">—</span>'}</td>
+            <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums;">${s.partial_dinner != null ? `€ ${formatMoney(s.partial_dinner)}` : '<span style="color: var(--ink-muted);">—</span>'}</td>
+            <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--terracotta-dark);">${s.computed_total != null ? `€ ${formatMoney(s.computed_total)}` : '<span style="color: var(--ink-muted);">—</span>'}</td>
+          </tr>
+        `).join('');
+
+    return `
+      <div style="margin-top: var(--space-20);">
+        <p class="card__meta" style="margin: 0 0 var(--space-8) 0;">Riepilogo giornaliero</p>
+        <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+          <table style="width: 100%; border-collapse: collapse; background: var(--off-white); font-size: var(--text-sm);">
+            <thead>
+              <tr style="background: var(--cream-soft);">
+                <th style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: left; font-family: var(--font-display); font-weight: 600; white-space: nowrap;">Giorno</th>
+                <th style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-weight: 600;">Parziale pranzo</th>
+                <th style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-weight: 600;">Parziale cena</th>
+                <th style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-weight: 600;">Totale</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
   }
 
   function renderKpiCards(total, avg, projection, daysSoFar, daysTotal) {
@@ -172,6 +210,9 @@ export async function mountCashHistory(container, _params, query) {
     container.querySelectorAll('[data-day]').forEach((btn) => {
       btn.addEventListener('click', () => navigate(`/cassa?date=${btn.dataset.day}`));
     });
+    container.querySelectorAll('[data-row-day]').forEach((tr) => {
+      tr.addEventListener('click', () => navigate(`/cassa?date=${tr.dataset.rowDay}`));
+    });
     container.querySelectorAll('[data-nav]').forEach((btn) => {
       btn.addEventListener('click', () => {
         if (btn.dataset.nav === 'prev') {
@@ -268,6 +309,11 @@ function monthRange(year, month /* 0-indexed */) {
 
 function monthLabel(year, month) {
   return new Date(year, month, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+}
+
+function humanDay(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 function indexByDay(summaries) {
