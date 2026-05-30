@@ -25,4 +25,8 @@ COPY alembic ./alembic
 EXPOSE 8000
 
 # Railway sets $PORT; default to 8000 when running the image locally.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# `alembic upgrade head` applica le migration pendenti prima di servire le
+# richieste: idempotente (skip su DB già al day) e sicuro in multi-replica
+# (alembic usa un advisory lock interno). Se una migration fallisce, uvicorn
+# non parte e Railway mantiene la release precedente.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
