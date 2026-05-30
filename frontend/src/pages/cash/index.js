@@ -128,12 +128,15 @@ export async function mountCashPage(container, _params, query) {
   }
 
   function renderTabs() {
-    const posLunchAmt = state.posLunch ? Number(state.posLunch.closing_amount) : null;
-    const posDinnerAmt = state.posDinner ? Number(state.posDinner.closing_amount) : null;
+    // Mostra il PARZIALE del servizio (POS + cash netto + spese reincorporate),
+    // non solo il POS. Se il cash non è ancora stato compilato, partial_* è null
+    // e il tab mostra "—".
+    const partialLunch  = state.summary?.partial_lunch  != null ? Number(state.summary.partial_lunch)  : null;
+    const partialDinner = state.summary?.partial_dinner != null ? Number(state.summary.partial_dinner) : null;
     const total = state.summary?.computed_total != null ? Number(state.summary.computed_total) : null;
     return `<div class="row" style="gap: var(--space-8);">
-      ${tab('lunch', 'Pranzo', posLunchAmt)}
-      ${tab('dinner', 'Cena', posDinnerAmt)}
+      ${tab('lunch', 'Pranzo', partialLunch)}
+      ${tab('dinner', 'Cena', partialDinner)}
       ${tab('total', 'Totale', total)}
     </div>`;
   }
