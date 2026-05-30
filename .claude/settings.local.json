@@ -11,7 +11,11 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "Bash(pip3 show *)"
+      "Bash(pip3 show *)",
+      "Bash(node --check /Users/amoshalfon/Documents/GitHub/amodei/frontend/src/pages/cash/history.js)",
+      "Bash(python3 -m http.server 5500)",
+      "Bash(curl *)",
+      "Bash(python3 -m http.server 5501)"
     ]
   }
 }
