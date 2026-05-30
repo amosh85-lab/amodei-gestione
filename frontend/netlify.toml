@@ -1,11 +1,17 @@
 # Netlify configuration.
 #
-# Drag & drop deploys ignore [build] (they publish the dropped folder as-is),
-# but [[headers]] and [[redirects]] are honored. Keep the build block in place
-# for future Git-based deploys.
+# Continuous deployment configurato dalla dashboard Netlify con
+# base = "frontend" → questo file viene letto da quel base directory.
+# Drag&drop continua a funzionare (publish è la cartella droppata as-is).
 
 [build]
   publish = "."
+  # Skip il build quando il push non tocca nulla in frontend/ (es. solo
+  # modifiche backend o .claude/). Netlify esegue questo script dalla base
+  # directory configurata in dashboard ("frontend"); exit 0 = skip deploy,
+  # exit 1 = procedi. NB: serve la cronologia git fetchata da Netlify
+  # (settata di default per i siti git-linked).
+  ignore = "git diff --quiet HEAD^ HEAD -- ."
 
 [[headers]]
   for = "/*"
