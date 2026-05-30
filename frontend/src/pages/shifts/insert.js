@@ -176,6 +176,7 @@ export async function mountShiftsInsert(container, _params, query) {
   function wire() {
     container.querySelector('#date-picker')?.addEventListener('change', (e) => {
       state.date = e.target.value;
+      state.service = 'lunch';
       navigate(qs(), { replace: true });
       load();
     });
@@ -184,6 +185,7 @@ export async function mountShiftsInsert(container, _params, query) {
         const d = new Date(state.date);
         d.setDate(d.getDate() + Number(b.dataset.dayShift));
         state.date = d.toISOString().slice(0, 10);
+        state.service = 'lunch';
         navigate(qs(), { replace: true });
         load();
       });
@@ -255,6 +257,11 @@ export async function mountShiftsInsert(container, _params, query) {
     try {
       await apiPost('/work-shifts/bulk', { date: state.date, shifts });
       showToast(`Salvati ${shifts.length} turni`, 'success');
+      // Dopo aver salvato il pranzo, passa subito alla cena dello stesso giorno.
+      if (state.service === 'lunch') {
+        state.service = 'dinner';
+        navigate(qs(), { replace: true });
+      }
       await load();
     } catch (err) {
       const msg = err instanceof ApiError && err.message ? err.message : 'Errore salvataggio';
