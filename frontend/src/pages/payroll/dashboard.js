@@ -44,14 +44,14 @@ export async function mountPayrollDashboard(container, _params, query) {
   }
 
   // Bonus manager: dopo i 40.000 € di incasso mensile, +250 €. Ogni 5.000 €
-  // sopra la soglia, altri 250 €. Calcolato e aggiunto al netto in busta SOLO
-  // per gli utenti con role === 'manager'.
+  // sopra la soglia, altri 250 €. Applicato SOLO a Marco (identificato per
+  // email): gli altri manager in organico non hanno questo bonus.
   function applyManagerBonus(payroll, monthlyRevenue) {
     const bonus = managerBonus(monthlyRevenue);
     let bonusAdded = 0;
     for (const r of payroll.by_user) {
       r.bonus_amount = 0;
-      if (r.user.role !== 'manager' || r.needs_configuration) continue;
+      if (!isBonusEligible(r.user) || r.needs_configuration) continue;
       r.bonus_amount = bonus;
       if (bonus > 0 && r.net_to_pay != null) {
         r.net_to_pay = Number(r.net_to_pay) + bonus;
@@ -253,9 +253,17 @@ function countAdvances(r) {
 
 // ---- Manager bonus -----------------------------------------------------
 // Soglia 40.000 €/mese: scatta 250 €. Ogni 5.000 € sopra soglia: altri 250 €.
+// Solo per Marco (gli altri manager in organico non hanno questo accordo).
 const BONUS_THRESHOLD = 40000;
 const BONUS_STEP      = 5000;
 const BONUS_PER_TIER  = 250;
+const BONUS_ELIGIBLE_EMAILS = new Set([
+  'marco.sanarighi85@icloud.com',
+]);
+
+function isBonusEligible(user) {
+  return !!user && BONUS_ELIGIBLE_EMAILS.has((user.email || '').toLowerCase());
+}
 
 function managerBonus(monthlyRevenue) {
   const rev = Number(monthlyRevenue) || 0;
