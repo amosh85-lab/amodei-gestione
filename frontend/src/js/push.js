@@ -52,6 +52,7 @@ export async function subscribePush() {
 
   const reg = await navigator.serviceWorker.ready;
   let sub = await reg.pushManager.getSubscription();
+  const isFreshSubscription = !sub;
   if (!sub) {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
@@ -60,11 +61,20 @@ export async function subscribePush() {
   }
 
   const raw = sub.toJSON();
-  await apiPost('/push/subscribe', {
-    endpoint: raw.endpoint,
-    keys: { p256dh: raw.keys.p256dh, auth: raw.keys.auth },
-    user_agent: navigator.userAgent.slice(0, 255),
-  });
+  try {
+    await apiPost('/push/subscribe', {
+      endpoint: raw.endpoint,
+      keys: { p256dh: raw.keys.p256dh, auth: raw.keys.auth },
+      user_agent: navigator.userAgent.slice(0, 255),
+    });
+  } catch (err) {
+    // Backend ha rifiutato la subscription: rollback lato browser per non
+    // lasciare uno stato fantasma "attive nel browser, sconosciute al server".
+    if (isFreshSubscription) {
+      try { await sub.unsubscribe(); } catch { /* best effort */ }
+    }
+    throw err;
+  }
   return true;
 }
 
