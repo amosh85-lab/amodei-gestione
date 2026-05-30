@@ -11,7 +11,7 @@ import { icon } from '../../js/icons.js';
 import { showToast, skeletonList, parseNumberInput } from '../../js/components.js';
 
 const SERVICES = [
-  { key: 'lunch',  label: 'Pranzo', defaultStart: '11:30' },
+  { key: 'lunch',  label: 'Pranzo', defaultStart: '11:00' },
   { key: 'dinner', label: 'Cena',   defaultStart: '18:00' },
 ];
 
@@ -52,7 +52,7 @@ export async function mountShiftsInsert(container, _params, query) {
         return true;
       });
 
-      const defaultStart = (SERVICES.find((s) => s.key === state.service) || {}).defaultStart || '11:30';
+      const defaultStart = (SERVICES.find((s) => s.key === state.service) || {}).defaultStart || '11:00';
       const rows = uniqueUsers.map((user) => {
         const existing = day.shifts.find(
           (sh) => sh.user.id === user.id && sh.service === state.service,
