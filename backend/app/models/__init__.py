@@ -52,6 +52,7 @@ from app.models.staff_meals import (
     StaffMealItem,
     StaffMealParticipant,
 )
+from app.models.cash_vault import CashVaultMovement, MovementKind
 from app.models.push import PushSubscription
 from app.models.users import User, UserRole
 from app.models.work_shifts import WorkShift
@@ -111,4 +112,7 @@ __all__ = [
     "WorkShift",
     # push notifications
     "PushSubscription",
+    # cash vault
+    "CashVaultMovement",
+    "MovementKind",
 ]

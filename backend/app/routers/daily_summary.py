@@ -15,6 +15,7 @@ from app.models.cash import DailySummary
 from app.models.users import User
 from app.schemas.cash import DailySummaryOut, DailySummaryUpdate
 from app.services.cash import calculate_summary, get_cash_float
+from app.services.cash_vault import upsert_auto_daily as vault_upsert_auto_daily
 from app.services.push import send_to_admins
 
 router = APIRouter(prefix="/daily-summary", tags=["daily-summary"])
@@ -122,6 +123,20 @@ def update_summary(
         "DailySummary %s aggiornato by user_id=%d",
         day.isoformat(), user.id,
     )
+
+    # Sincronizza la cassaforte: l'entrata automatica per il giorno deve
+    # combaciare col cash_dinner_above_float corrente (idempotente, gestisce
+    # insert/update/delete in upsert_auto_daily).
+    if "cash_dinner_above_float" in changes:
+        try:
+            vault_upsert_auto_daily(
+                session,
+                day=day,
+                new_cash_dinner_above_float=row.cash_dinner_above_float,
+                user_id=user.id,
+            )
+        except Exception:
+            logger.exception("Cash vault upsert failed (non-fatal) for %s", day.isoformat())
 
     summary = calculate_summary(session, day)
 

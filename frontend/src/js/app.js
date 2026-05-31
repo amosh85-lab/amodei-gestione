@@ -68,6 +68,7 @@ route('/riordini/:id',        lazy('../pages/reorders/edit.js',        'mountReo
 route('/cassa/storico',       lazy('../pages/cash/history.js',         'mountCashHistory'),        { requires: ['admin', 'manager'] });
 route('/cassa/riepilogo',     lazy('../pages/cash/table.js',           'mountCashTable'),          { requires: ['admin', 'manager'] });
 route('/cassa/statistiche',   lazy('../pages/cash/stats.js',           'mountCashStats'),          { requires: ['admin', 'manager'] });
+route('/cassaforte',          lazy('../pages/cash-vault/index.js',     'mountCashVault'),          { requires: ['admin'] });
 route('/report/sprechi',      lazy('../pages/reports/waste.js',        'mountReportsWaste'),       { requires: ['admin', 'manager'] });
 route('/report/margini',      lazy('../pages/reports/margins.js',      'mountReportsMargins'),     { requires: ['admin', 'manager'] });
 route('/riordini-previsti',   lazy('../pages/reports/forecast.js',     'mountReportsForecast'),    { requires: ['admin', 'manager'] });

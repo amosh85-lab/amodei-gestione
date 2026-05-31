@@ -88,6 +88,9 @@ function mountAdminHome(container, user) {
 
       <!-- ANDAMENTO INCASSI (WoW / MoM / YoY) -->
       <div id="home-trends" style="margin-top: 12px;"></div>
+
+      <!-- CASSAFORTE: saldo + ultimi movimenti (solo admin) -->
+      <div id="home-vault" style="margin-top: 12px;"></div>
     </div>
     ` : ''}
 
@@ -108,6 +111,7 @@ function mountAdminHome(container, user) {
       <p style="margin: 24px 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Gestione</p>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
         ${tile('Cassa',     'cash',      '/cassa',      '#3D5A3D')}
+        ${isAdmin ? tile('Cassaforte','cash','/cassaforte','#2A1F1A') : ''}
         ${tile('Riordini',  'whatsapp',  '/riordini',   '#25D366')}
         ${tile('Turni',     'clock',     '/turni',      '#6a4c93')}
         ${isAdmin ? tile('Stipendi', 'cash', '/stipendi', '#2563EB') : tile('Pasti staff', 'cash', '/pasti-staff', '#8B6A2E')}
@@ -143,6 +147,7 @@ function mountAdminHome(container, user) {
   if (isAdmin) {
     loadIncassoCard();
     loadTrendsCard();
+    loadVaultCard();
   }
   loadNotifications(container);
 
@@ -326,6 +331,56 @@ function fmtThousands(n) {
   const parts = Number(n).toFixed(2).split('.');
   const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return `${intPart},${parts[1]}`;
+}
+
+// ---- Cassaforte card (saldo + ultimi 5 movimenti, solo admin) ----
+
+async function loadVaultCard() {
+  const slot = document.getElementById('home-vault');
+  if (!slot) return;
+  let data;
+  try {
+    data = await apiGet('/cash-vault/balance?last_n=5');
+  } catch { return; }
+  const movHtml = data.last_movements.length === 0
+    ? `<p class="muted text-xs" style="margin: 8px 0 0 0;">Nessun movimento. Imposta il saldo iniziale per partire.</p>`
+    : data.last_movements.map((m) => {
+        const isOut = Number(m.amount) < 0;
+        const abs = Math.abs(Number(m.amount));
+        const color = isOut ? 'var(--terracotta-dark)' : 'var(--bottle-green, #4f8e3a)';
+        const sign = isOut ? '−' : '+';
+        return `
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border-soft);">
+            <div style="min-width:0; flex:1;">
+              <p style="margin:0; font-size: 13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(m.description || '—')}</p>
+              <p style="margin:0; font-size: 11px; color: var(--ink-muted);">${humanDateShort(m.movement_date)}</p>
+            </div>
+            <span class="font-display" style="font-size: 14px; color: ${color}; white-space:nowrap;">${sign} € ${fmtThousands(abs)}</span>
+          </div>
+        `;
+      }).join('');
+
+  slot.innerHTML = `
+    <div style="background: var(--off-white); border-radius: 16px; box-shadow: 0 4px 24px rgba(42,31,26,0.10); padding: 16px 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Cassaforte</span>
+        <button type="button" data-go="/cassaforte" style="background: none; border: none; color: var(--terracotta-dark); font-size: 12px; font-weight: 600; cursor: pointer;">Gestisci →</button>
+      </div>
+      <p class="font-display" style="margin: 6px 0 0 0; font-size: 2rem; font-weight: 700; line-height: 1.1; color: var(--ink);">€ ${fmtThousands(data.balance)}</p>
+      <p class="muted text-xs" style="margin: 4px 0 0 0;">
+        Iniziale € ${fmtThousands(data.baseline)} · entrate € ${fmtThousands(data.auto_total)} · uscite € ${fmtThousands(data.manual_out_total)}
+      </p>
+      <div style="margin-top: 10px;">${movHtml}</div>
+    </div>
+  `;
+  slot.querySelectorAll('[data-go]').forEach((b) => {
+    b.addEventListener('click', () => navigate(b.dataset.go));
+  });
+}
+
+function humanDateShort(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
 }
 
 function computeWeekAvg(byDate, today) {

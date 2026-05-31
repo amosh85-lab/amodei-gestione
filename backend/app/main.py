@@ -16,6 +16,7 @@ from app.routers import (
     auth as auth_router,
     batches as batches_router,
     cash_export as cash_export_router,
+    cash_vault as cash_vault_router,
     daily_summary as daily_summary_router,
     evening_close as evening_close_router,
     expense_categories as expense_categories_router,
@@ -151,6 +152,7 @@ app.include_router(pos_sessions_router.router)
 app.include_router(expenses_router.router)
 app.include_router(daily_summary_router.router)
 app.include_router(cash_export_router.router)
+app.include_router(cash_vault_router.router)
 app.include_router(advances_router.router)
 app.include_router(invoices_router.router)
 app.include_router(payments_router.router)
