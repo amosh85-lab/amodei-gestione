@@ -74,18 +74,18 @@ export async function mountCashVault(container, _params, _query) {
           ${b.baseline_date ? `<p class="text-xs" style="margin: var(--space-12) 0 0 0; opacity: 0.55; color: inherit;">Saldo iniziale impostato al ${humanDate(b.baseline_date)}</p>` : ''}
         </div>
 
-        <!-- Actions -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); margin-top: var(--space-16);">
-          <button type="button" id="add-in" class="btn btn--secondary btn--lg" style="border-color: var(--bottle-green, #4f8e3a); color: var(--bottle-green, #4f8e3a);">
+        <!-- Actions: stack verticale per stare comodi su mobile senza sforare -->
+        <div class="stack-8" style="margin-top: var(--space-16);">
+          <button type="button" id="add-in" class="btn btn--secondary btn--lg full-width" style="border-color: var(--bottle-green, #4f8e3a); color: var(--bottle-green, #4f8e3a);">
             ${icon('plus', { size: 18 })}<span>Aggiungi entrata</span>
           </button>
-          <button type="button" id="add-out" class="btn btn--primary btn--lg">
+          <button type="button" id="add-out" class="btn btn--primary btn--lg full-width">
             ${icon('plus', { size: 18 })}<span>Aggiungi uscita</span>
           </button>
+          <button type="button" id="set-baseline" class="btn btn--ghost full-width">
+            ${icon('edit', { size: 16 })}<span>Modifica saldo iniziale</span>
+          </button>
         </div>
-        <button type="button" id="set-baseline" class="btn btn--ghost full-width" style="margin-top: var(--space-8);">
-          ${icon('edit', { size: 16 })}<span>Modifica saldo iniziale</span>
-        </button>
 
         <!-- Movimenti del mese corrente -->
         <div style="margin-top: var(--space-20);">

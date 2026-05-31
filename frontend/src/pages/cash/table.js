@@ -95,14 +95,17 @@ export async function mountCashTable(container, _params, query) {
       .slice()
       .sort((a, b) => a.date.localeCompare(b.date));
 
+    const bodyTdDate = 'padding: 8px 6px; border: 1px solid var(--border-strong); text-transform: capitalize; white-space: nowrap;';
+    const bodyTdNum  = 'padding: 8px 6px; border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap;';
+    const bodyTdNumHi = bodyTdNum + ' font-weight: 600; color: var(--terracotta-dark);';
     const body = rows.length === 0
       ? `<tr><td colspan="4" style="padding: var(--space-16); text-align: center; color: var(--ink-muted);">Nessun dato per questo mese.</td></tr>`
       : rows.map((s) => `
           <tr data-row-day="${s.date}" style="cursor: pointer;">
-            <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-transform: capitalize; white-space: nowrap;">${escapeHtml(humanDay(s.date))}</td>
-            <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums;">${s.partial_lunch != null ? `€ ${formatMoney(s.partial_lunch)}` : '<span style="color: var(--ink-muted);">—</span>'}</td>
-            <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums;">${s.partial_dinner != null ? `€ ${formatMoney(s.partial_dinner)}` : '<span style="color: var(--ink-muted);">—</span>'}</td>
-            <td style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--terracotta-dark);">${s.computed_total != null ? `€ ${formatMoney(s.computed_total)}` : '<span style="color: var(--ink-muted);">—</span>'}</td>
+            <td style="${bodyTdDate}">${escapeHtml(humanDay(s.date))}</td>
+            <td style="${bodyTdNum}">${s.partial_lunch != null ? `€${formatMoney(s.partial_lunch)}` : '<span style="color: var(--ink-muted);">—</span>'}</td>
+            <td style="${bodyTdNum}">${s.partial_dinner != null ? `€${formatMoney(s.partial_dinner)}` : '<span style="color: var(--ink-muted);">—</span>'}</td>
+            <td style="${bodyTdNumHi}">${s.computed_total != null ? `€${formatMoney(s.computed_total)}` : '<span style="color: var(--ink-muted);">—</span>'}</td>
           </tr>
         `).join('');
 
@@ -123,48 +126,54 @@ export async function mountCashTable(container, _params, query) {
     const projDinner = avgDinner * daysInMonth;
     const projMonth  = avgMonth  * daysInMonth;
 
-    const tdHead  = 'padding: var(--space-12); border: 1px solid var(--border-strong); font-family: var(--font-display); white-space: nowrap;';
-    const tdNum   = 'padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums;';
+    // Stile celle compatto: padding ridotto + nowrap così tutta la tabella sta
+    // in 390px portrait senza scroll orizzontale. Tabular-nums per allineamento.
+    const tdHead  = 'padding: 8px 6px; border: 1px solid var(--border-strong); font-family: var(--font-display); white-space: nowrap;';
+    const tdNum   = 'padding: 8px 6px; border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap;';
     const tdNumHi = tdNum + ' color: var(--terracotta-dark);';
+    // Stacco visivo forte sopra la riga "Totali mese" (e quindi sopra tutto il tfoot).
+    const tdHeadTotals  = tdHead + ' border-top: 3px solid var(--terracotta);';
+    const tdNumTotals   = tdNum + ' border-top: 3px solid var(--terracotta);';
+    const tdNumHiTotals = tdNumHi + ' border-top: 3px solid var(--terracotta);';
 
     const foot = rows.length === 0 ? '' : `
       <tfoot>
         <tr style="background: var(--cream-soft); font-weight: 600;">
-          <td style="${tdHead}">Totali mese</td>
-          <td style="${tdNum}">€ ${formatMoney(totLunch)}</td>
-          <td style="${tdNum}">€ ${formatMoney(totDinner)}</td>
-          <td style="${tdNumHi}">€ ${formatMoney(totMonth)}</td>
+          <td style="${tdHeadTotals}">Totali mese</td>
+          <td style="${tdNumTotals}">€${formatMoney(totLunch)}</td>
+          <td style="${tdNumTotals}">€${formatMoney(totDinner)}</td>
+          <td style="${tdNumHiTotals}">€${formatMoney(totMonth)}</td>
         </tr>
         <tr style="background: var(--cream-soft);">
-          <td style="${tdHead}">Media <span class="muted text-xs">(${cntMonth} ${cntMonth === 1 ? 'giorno' : 'giorni'})</span></td>
-          <td style="${tdNum}">€ ${formatMoney(avgLunch)}</td>
-          <td style="${tdNum}">€ ${formatMoney(avgDinner)}</td>
-          <td style="${tdNumHi}">€ ${formatMoney(avgMonth)}</td>
+          <td style="${tdHead}">Media <span class="muted text-xs">(${cntMonth}gg)</span></td>
+          <td style="${tdNum}">€${formatMoney(avgLunch)}</td>
+          <td style="${tdNum}">€${formatMoney(avgDinner)}</td>
+          <td style="${tdNumHi}">€${formatMoney(avgMonth)}</td>
         </tr>
-        <tr style="background: var(--cream-soft); border-top: 2px solid var(--terracotta);">
-          <td style="${tdHead}">Proiezione mese <span class="muted text-xs">(× ${daysInMonth} gg)</span></td>
-          <td style="${tdNum}">€ ${formatMoney(projLunch)}</td>
-          <td style="${tdNum}">€ ${formatMoney(projDinner)}</td>
-          <td style="${tdNumHi}">€ ${formatMoney(projMonth)}</td>
+        <tr style="background: var(--cream-soft);">
+          <td style="${tdHead}">Proiezione <span class="muted text-xs">(×${daysInMonth}gg)</span></td>
+          <td style="${tdNum}">€${formatMoney(projLunch)}</td>
+          <td style="${tdNum}">€${formatMoney(projDinner)}</td>
+          <td style="${tdNumHi}">€${formatMoney(projMonth)}</td>
         </tr>
       </tfoot>
     `;
 
+    const thStyle = 'padding: 8px 6px; border: 1px solid var(--border-strong); font-family: var(--font-display); font-weight: 600; white-space: nowrap;';
+
     return `
-      <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-        <table style="width: 100%; border-collapse: collapse; background: var(--off-white); font-size: var(--text-sm);">
-          <thead>
-            <tr style="background: var(--cream-soft);">
-              <th style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: left; font-family: var(--font-display); font-weight: 600; white-space: nowrap;">Giorno</th>
-              <th style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-weight: 600;">Parziale pranzo</th>
-              <th style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-weight: 600;">Parziale cena</th>
-              <th style="padding: var(--space-12); border: 1px solid var(--border-strong); text-align: right; font-family: var(--font-display); font-weight: 600;">Totale</th>
-            </tr>
-          </thead>
-          <tbody>${body}</tbody>
-          ${foot}
-        </table>
-      </div>
+      <table style="width: 100%; border-collapse: collapse; background: var(--off-white); font-size: 12px; table-layout: auto;">
+        <thead>
+          <tr style="background: var(--cream-soft);">
+            <th style="${thStyle} text-align: left;">Giorno</th>
+            <th style="${thStyle} text-align: right;">Pranzo</th>
+            <th style="${thStyle} text-align: right;">Cena</th>
+            <th style="${thStyle} text-align: right;">Totale</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+        ${foot}
+      </table>
     `;
   }
 
