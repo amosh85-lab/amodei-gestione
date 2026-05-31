@@ -148,13 +148,20 @@ export async function mountShiftsInsert(container, _params, query) {
             <p class="muted text-xs" style="margin: 2px 0 0 0;">${escapeHtml(r.user.role)}${isExisting ? ' · turno esistente' : ''}</p>
           </div>
         </div>
-        <div style="display: grid; grid-template-columns: 90px 36px minmax(0, 1fr) 36px; grid-template-rows: auto auto; column-gap: var(--space-8); row-gap: 4px; align-items: center; margin-top: var(--space-12);">
-          <label class="muted text-xs" style="grid-column: 1 / 2; grid-row: 1;">Inizio</label>
-          <label class="muted text-xs" style="grid-column: 2 / 5; grid-row: 1;">Ore</label>
-          <input type="time" data-time-idx="${idx}" class="input" value="${escapeAttr(r.start_time)}" style="grid-column: 1 / 2; grid-row: 2; width: 100%; min-width: 0; padding: 8px; box-sizing: border-box;">
-          <button type="button" data-step-idx="${idx}" data-delta="-0.5" class="btn btn--secondary" style="grid-column: 2 / 3; grid-row: 2; width: 36px; height: 36px; min-height: 36px; min-width: 0; font-size: 1.2rem; padding: 0;">−</button>
-          <input type="number" data-hours-idx="${idx}" class="input" value="${formatHours(r.hours)}" min="0" max="12" step="0.25" style="grid-column: 3 / 4; grid-row: 2; width: 100%; min-width: 0; text-align: center; font-family: var(--font-display); font-size: 1.05rem; padding: 8px 4px; box-sizing: border-box;">
-          <button type="button" data-step-idx="${idx}" data-delta="+0.5" class="btn btn--secondary" style="grid-column: 4 / 5; grid-row: 2; width: 36px; height: 36px; min-height: 36px; min-width: 0; font-size: 1.2rem; padding: 0;">+</button>
+        <!-- Riga Inizio + Riga Ore in stack verticale: niente possibilità
+             di sovrapposizione, il time picker iOS è libero di prendersi
+             la larghezza che vuole sulla sua riga senza schiacciare le ore. -->
+        <div style="margin-top: var(--space-12);">
+          <label class="muted text-xs" style="display:block;">Inizio</label>
+          <input type="time" data-time-idx="${idx}" class="input" value="${escapeAttr(r.start_time)}" style="width: 100%;">
+        </div>
+        <div style="margin-top: var(--space-8);">
+          <label class="muted text-xs" style="display:block;">Ore</label>
+          <div style="display: flex; align-items: center; gap: var(--space-8);">
+            <button type="button" data-step-idx="${idx}" data-delta="-0.5" class="btn btn--secondary" style="flex: 0 0 44px; width: 44px; height: 44px; font-size: 1.3rem; padding: 0;">−</button>
+            <input type="number" data-hours-idx="${idx}" class="input" value="${formatHours(r.hours)}" min="0" max="12" step="0.25" style="flex: 1 1 auto; min-width: 0; text-align: center; font-family: var(--font-display); font-size: 1.2rem;">
+            <button type="button" data-step-idx="${idx}" data-delta="+0.5" class="btn btn--secondary" style="flex: 0 0 44px; width: 44px; height: 44px; font-size: 1.3rem; padding: 0;">+</button>
+          </div>
         </div>
         <div style="margin-top: var(--space-8);">
           <input type="text" data-notes-idx="${idx}" class="input" value="${escapeAttr(r.notes)}" placeholder="Note (opzionale)" maxlength="200">
