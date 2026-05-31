@@ -148,19 +148,26 @@ export async function mountShiftsInsert(container, _params, query) {
             <p class="muted text-xs" style="margin: 2px 0 0 0;">${escapeHtml(r.user.role)}${isExisting ? ' · turno esistente' : ''}</p>
           </div>
         </div>
-        <!-- Riga Inizio + Riga Ore in stack verticale: niente possibilità
-             di sovrapposizione, il time picker iOS è libero di prendersi
-             la larghezza che vuole sulla sua riga senza schiacciare le ore. -->
-        <div style="margin-top: var(--space-12);">
-          <label class="muted text-xs" style="display:block;">Inizio</label>
-          <input type="time" data-time-idx="${idx}" class="input" value="${escapeAttr(r.start_time)}" style="width: 100%;">
-        </div>
-        <div style="margin-top: var(--space-8);">
-          <label class="muted text-xs" style="display:block;">Ore</label>
-          <div style="display: flex; align-items: center; gap: var(--space-8);">
-            <button type="button" data-step-idx="${idx}" data-delta="-0.5" class="btn btn--secondary" style="flex: 0 0 44px; width: 44px; height: 44px; font-size: 1.3rem; padding: 0;">−</button>
-            <input type="number" data-hours-idx="${idx}" class="input" value="${formatHours(r.hours)}" min="0" max="12" step="0.25" style="flex: 1 1 auto; min-width: 0; text-align: center; font-family: var(--font-display); font-size: 1.2rem;">
-            <button type="button" data-step-idx="${idx}" data-delta="+0.5" class="btn btn--secondary" style="flex: 0 0 44px; width: 44px; height: 44px; font-size: 1.3rem; padding: 0;">+</button>
+        <!-- Side-by-side: Inizio compatto (95px) + Ore fluido.
+             Il container "wrap" di Inizio ha overflow hidden + border, e
+             l'input type=time dentro è "nudo" (no border, no class .input).
+             Così anche se iOS vuole stretchare il time picker, viene clippato
+             alla larghezza del wrapper e visivamente resta a 95px. -->
+        <div style="display: flex; gap: var(--space-8); margin-top: var(--space-12); align-items: flex-end;">
+          <div style="flex: 0 0 95px;">
+            <label class="muted text-xs" style="display:block;">Inizio</label>
+            <div style="width: 95px; height: 44px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--off-white); overflow: hidden; display: flex; align-items: center;">
+              <input type="time" data-time-idx="${idx}" value="${escapeAttr(r.start_time)}"
+                     style="width: 100%; min-width: 0; height: 100%; border: none; outline: none; background: transparent; padding: 0 8px; font-family: var(--font-body); font-size: var(--text-base); color: var(--ink); box-sizing: border-box; -webkit-appearance: none; appearance: none;">
+            </div>
+          </div>
+          <div style="flex: 1 1 auto; min-width: 0;">
+            <label class="muted text-xs" style="display:block;">Ore</label>
+            <div style="display: flex; align-items: center; gap: var(--space-4);">
+              <button type="button" data-step-idx="${idx}" data-delta="-0.5" class="btn btn--secondary" style="flex: 0 0 36px; width: 36px; height: 44px; min-height: 44px; font-size: 1.2rem; padding: 0;">−</button>
+              <input type="number" data-hours-idx="${idx}" class="input" value="${formatHours(r.hours)}" min="0" max="12" step="0.25" style="flex: 1 1 0; min-width: 0; width: 100%; text-align: center; font-family: var(--font-display); font-size: 1.1rem; padding: 0 4px;">
+              <button type="button" data-step-idx="${idx}" data-delta="+0.5" class="btn btn--secondary" style="flex: 0 0 36px; width: 36px; height: 44px; min-height: 44px; font-size: 1.2rem; padding: 0;">+</button>
+            </div>
           </div>
         </div>
         <div style="margin-top: var(--space-8);">
