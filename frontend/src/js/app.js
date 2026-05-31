@@ -107,7 +107,15 @@ async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (location.protocol === 'file:') return;
   try {
-    const reg = await navigator.serviceWorker.register('/service-worker.js');
+    // updateViaCache: 'none' → il browser NON deve usare la HTTP cache per
+    // /service-worker.js. Senza questo, su iOS Safari PWA il vecchio SW
+    // può restare attivo per ore/giorni anche dopo un deploy nuovo, perché
+    // il browser non rifa la richiesta al server. Serve iOS 16+.
+    const reg = await navigator.serviceWorker.register('/service-worker.js', {
+      updateViaCache: 'none',
+    });
+    // Forziamo un check immediato di aggiornamenti ad ogni boot.
+    try { reg.update(); } catch (_) { /* best effort */ }
 
     // A new SW has been downloaded and is in "waiting" — show update prompt.
     const promptUpdate = (worker) => {
