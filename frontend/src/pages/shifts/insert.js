@@ -155,7 +155,7 @@ export async function mountShiftsInsert(container, _params, query) {
              alla larghezza del wrapper e visivamente resta a 95px. -->
         <div style="display: flex; gap: var(--space-8); margin-top: var(--space-12); align-items: flex-end;">
           <div style="flex: 0 0 95px;">
-            <label class="muted text-xs" style="display:block;">Inizio</label>
+            <label class="muted text-xs" style="display:block; text-align: center;">Inizio</label>
             <div style="width: 95px; height: 44px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--off-white); overflow: hidden; display: flex; align-items: center;">
               <input type="time" data-time-idx="${idx}" value="${escapeAttr(r.start_time)}"
                      style="width: 100%; min-width: 0; height: 100%; border: none; outline: none; background: transparent; padding: 0 8px; font-family: var(--font-body); font-size: var(--text-base); color: var(--ink); box-sizing: border-box; -webkit-appearance: none; appearance: none;">
