@@ -259,6 +259,16 @@ export async function mountCashPage(container, _params, query) {
           ${cashValue != null ? `€ ${formatMoney(cashValue)}` : '<span style="opacity: 0.55; font-style: italic; font-size: 1.2rem;">tap per inserire</span>'}
         </button>
       </div>
+
+      <!-- CTA principale: apre lo stesso numpad del bottone cash sopra -->
+      <button type="button" data-summary-field="${cashField}"
+              class="btn btn--primary btn--lg full-width"
+              style="margin-top: var(--space-16);">
+        ${icon(cashValue != null ? 'edit' : 'check', { size: 20 })}
+        <span>${cashValue != null
+          ? (isLunch ? 'Modifica incasso parziale' : 'Modifica incasso')
+          : (isLunch ? 'Inserisci incasso parziale' : 'Inserisci incasso')}</span>
+      </button>
     `;
   }
 
