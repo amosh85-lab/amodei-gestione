@@ -84,7 +84,13 @@ def get_summary(
     row = session.scalar(select(DailySummary).where(DailySummary.date == day))
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Nessun riepilogo per {day.isoformat()}.")
-    return _attach_creator_names(session, calculate_summary(session, day))
+    s = calculate_summary(session, day)
+    logger.warning(
+        "[CASH-DEBUG] GET %s cash_lunch_db=%r cash_dinner_db=%r cash_lunch_out=%r cash_dinner_out=%r",
+        day.isoformat(), row.cash_lunch_above_float, row.cash_dinner_above_float,
+        s.cash_lunch_above_float, s.cash_dinner_above_float,
+    )
+    return _attach_creator_names(session, s)
 
 
 @router.patch("/{day}", response_model=DailySummaryOut)
@@ -121,8 +127,19 @@ def update_summary(
         "DailySummary %s aggiornato by user_id=%d",
         day.isoformat(), user.id,
     )
+    # DEBUG temporaneo per indagare "cash dice salvato ma non appare":
+    # voglio vedere cosa arriva, cosa viene committato, cosa il calculate ritorna.
+    logger.warning(
+        "[CASH-DEBUG] day=%s payload_changes=%r row.cash_lunch=%r row.cash_dinner=%r",
+        day.isoformat(), changes, row.cash_lunch_above_float, row.cash_dinner_above_float,
+    )
 
     summary = calculate_summary(session, day)
+    logger.warning(
+        "[CASH-DEBUG] summary day=%s cash_lunch_out=%r cash_dinner_out=%r partial_lunch=%r partial_dinner=%r",
+        day.isoformat(), summary.cash_lunch_above_float, summary.cash_dinner_above_float,
+        summary.partial_lunch, summary.partial_dinner,
+    )
 
     # Push notification quando si compila per la prima volta cash pranzo o
     # cash cena (transizione null → valore). L'autore non riceve la propria
