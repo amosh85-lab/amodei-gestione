@@ -14,6 +14,7 @@ quando l'admin aggiorna ``cash_dinner_above_float`` del DailySummary.
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 revision = 'v1a2u3l4t5c6'
@@ -22,9 +23,18 @@ branch_labels = None
 depends_on = None
 
 
-movement_kind_enum = sa.Enum(
+# Creiamo il TYPE Postgres una sola volta manualmente (checkfirst=True per
+# essere idempotenti); poi quando lo riferiamo dentro la create_table
+# passiamo create_type=False per impedire ad Alembic di emettere un secondo
+# CREATE TYPE che farebbe fallire la migration con "type already exists".
+movement_kind_enum = postgresql.ENUM(
     'baseline', 'auto_daily', 'manual_out',
     name='cash_vault_movement_kind',
+)
+movement_kind_col = postgresql.ENUM(
+    'baseline', 'auto_daily', 'manual_out',
+    name='cash_vault_movement_kind',
+    create_type=False,
 )
 
 
@@ -35,7 +45,7 @@ def upgrade() -> None:
         "cash_vault_movements",
         sa.Column("id", sa.BigInteger(), autoincrement=True, primary_key=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("kind", movement_kind_enum, nullable=False),
+        sa.Column("kind", movement_kind_col, nullable=False),
         sa.Column("amount", sa.Numeric(12, 2), nullable=False),
         sa.Column("movement_date", sa.Date(), nullable=False),
         sa.Column("description", sa.String(length=255), nullable=True),
