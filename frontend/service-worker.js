@@ -9,7 +9,7 @@
 //     activated explicitly by the page (postMessage SKIP_WAITING). The page shows a toast
 //     "nuova versione, aggiorna" → user clicks → worker activates and the page reloads.
 
-const CACHE_VERSION = 'amodei-v0.5.1';
+const CACHE_VERSION = 'amodei-v0.5.2';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -35,8 +35,14 @@ const PRECACHE = [
 ];
 
 self.addEventListener('install', (event) => {
-  // Pre-cache the app shell. We do NOT call skipWaiting() here: a fresh worker
-  // sits in "waiting" until the page explicitly tells it to activate.
+  // Pre-cache l'app shell, poi attiva subito senza aspettare che la pagina
+  // mandi SKIP_WAITING. Storicamente aspettavamo l'azione utente (toast
+  // "nuova versione disponibile") ma su iOS PWA spesso il toast viene
+  // mancato → l'utente resta con SW vecchio + JS cached → bug subdoli
+  // (es. fetch senza cache:'no-store' che ritorna risposte stale dopo
+  // PATCH). Adesso il SW si auto-promuove; il controllerchange listener
+  // in src/js/app.js fa reload della pagina così l'app prende il nuovo
+  // shell immediatamente.
   event.waitUntil(
     caches
       .open(CACHE_VERSION)
@@ -47,6 +53,7 @@ self.addEventListener('install', (event) => {
           )
         )
       )
+      .then(() => self.skipWaiting())
   );
 });
 
