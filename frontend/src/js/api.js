@@ -58,7 +58,14 @@ async function request(
 
   let res;
   try {
-    res = await fetch(url, { method, headers, body: payload, signal: controller.signal });
+    // cache: 'no-store' → Safari/iOS PWA non riservono GET cached al posto
+    // di una nuova fetch dopo PATCH/POST. Senza questo, il GET successivo a
+    // un aggiornamento poteva ritornare la versione vecchia (toast "salvato"
+    // ma UI non aggiornata).
+    res = await fetch(url, {
+      method, headers, body: payload, signal: controller.signal,
+      cache: 'no-store',
+    });
   } catch (err) {
     clearTimeout(timer);
     throw new ApiError(

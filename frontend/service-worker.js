@@ -9,7 +9,7 @@
 //     activated explicitly by the page (postMessage SKIP_WAITING). The page shows a toast
 //     "nuova versione, aggiorna" → user clicks → worker activates and the page reloads.
 
-const CACHE_VERSION = 'amodei-v0.5.0';
+const CACHE_VERSION = 'amodei-v0.5.1';
 const PRECACHE = [
   '/',
   '/index.html',
