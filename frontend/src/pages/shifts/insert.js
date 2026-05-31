@@ -162,7 +162,7 @@ export async function mountShiftsInsert(container, _params, query) {
             </div>
           </div>
           <div style="flex: 1 1 auto; min-width: 0;">
-            <label class="muted text-xs" style="display:block;">Ore</label>
+            <label class="muted text-xs" style="display:block; text-align: center;">Ore</label>
             <div style="display: flex; align-items: center; gap: var(--space-4);">
               <button type="button" data-step-idx="${idx}" data-delta="-0.5" class="btn btn--secondary" style="flex: 0 0 36px; width: 36px; height: 44px; min-height: 44px; font-size: 1.2rem; padding: 0;">−</button>
               <input type="number" data-hours-idx="${idx}" class="input" value="${formatHours(r.hours)}" min="0" max="12" step="0.25" style="flex: 1 1 0; min-width: 0; width: 100%; text-align: center; font-family: var(--font-display); font-size: 1.1rem; padding: 0 4px;">
