@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import logging
 from datetime import date as date_type, datetime, timezone
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -154,3 +155,62 @@ def update_summary(
         logger.exception("Push send failed (non-fatal) for DailySummary %s", day.isoformat())
 
     return _attach_creator_names(session, summary)
+
+
+@router.post(
+    "/{day}/resend-cash-notification",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def resend_cash_notification(
+    day: date_type,
+    service: Literal["lunch", "dinner"] = Query(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_manager_or_admin),
+) -> Response:
+    """Rispedisce la push del parziale pranzo o cassa serata per ``day``.
+
+    Pensato per il bottone "Reinvia" della pagina /cassa: utile quando il
+    primo invio non è arrivato (notifica accidentalmente disattivata, push
+    bloccata da iOS, ecc.). Richiede che il cash extra fondo del servizio
+    sia già stato inserito (altrimenti partial_* è None e 400).
+    """
+    row = session.scalar(select(DailySummary).where(DailySummary.date == day))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Nessun riepilogo per {day.isoformat()}.")
+
+    summary = calculate_summary(session, day)
+
+    if service == "lunch":
+        if summary.partial_lunch is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Cash extra fondo a fine pranzo non ancora inserito.",
+            )
+        send_to_admins(
+            session,
+            title="Parziale pranzo (rinvio)",
+            body=f"€ {summary.partial_lunch:.2f} · da {user.full_name} ({day.strftime('%d/%m')})",
+            url=f"/cassa?date={day.isoformat()}&tab=lunch",
+            tag=f"cash-lunch-{day.isoformat()}",
+            exclude_user_id=user.id,
+        )
+    else:  # dinner
+        if summary.partial_dinner is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Cash extra fondo a fine serata non ancora inserito.",
+            )
+        total_str = (
+            f" · totale € {summary.computed_total:.2f}"
+            if summary.computed_total is not None else ""
+        )
+        send_to_admins(
+            session,
+            title="Cassa serata (rinvio)",
+            body=f"Parziale cena € {summary.partial_dinner:.2f}{total_str} · da {user.full_name} ({day.strftime('%d/%m')})",
+            url=f"/cassa?date={day.isoformat()}&tab=total",
+            tag=f"cash-dinner-{day.isoformat()}",
+            exclude_user_id=user.id,
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

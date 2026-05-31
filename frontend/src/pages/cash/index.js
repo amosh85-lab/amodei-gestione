@@ -260,15 +260,28 @@ export async function mountCashPage(container, _params, query) {
         </button>
       </div>
 
-      <!-- CTA principale: apre lo stesso numpad del bottone cash sopra -->
-      <button type="button" data-summary-field="${cashField}"
-              class="btn btn--primary btn--lg full-width"
-              style="margin-top: var(--space-16);">
-        ${icon(cashValue != null ? 'edit' : 'check', { size: 20 })}
-        <span>${cashValue != null
-          ? (isLunch ? 'Modifica incasso parziale' : 'Modifica incasso')
-          : (isLunch ? 'Inserisci incasso parziale' : 'Inserisci incasso')}</span>
-      </button>
+      <!-- CTA principale -->
+      ${cashValue != null ? `
+        <div class="row" style="gap: var(--space-8); margin-top: var(--space-16);">
+          <button type="button" data-summary-field="${cashField}"
+                  class="btn btn--primary btn--lg" style="flex: 1;">
+            ${icon('edit', { size: 18 })}
+            <span>Modifica</span>
+          </button>
+          <button type="button" data-resend-cash="${service}"
+                  class="btn btn--secondary btn--lg" style="flex: 1;">
+            ${icon('refresh-cw', { size: 18 })}
+            <span>Reinvia</span>
+          </button>
+        </div>
+      ` : `
+        <button type="button" data-summary-field="${cashField}"
+                class="btn btn--primary btn--lg full-width"
+                style="margin-top: var(--space-16);">
+          ${icon('check', { size: 20 })}
+          <span>${isLunch ? 'Inserisci incasso parziale' : 'Inserisci incasso'}</span>
+        </button>
+      `}
     `;
   }
 
@@ -507,6 +520,21 @@ export async function mountCashPage(container, _params, query) {
       b.addEventListener('click', () => {
         state.tab = b.dataset.tab;
         render();
+      });
+    });
+
+    container.querySelectorAll('[data-resend-cash]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const svc = btn.dataset.resendCash;
+        btn.disabled = true;
+        try {
+          await apiPost(`/daily-summary/${state.date}/resend-cash-notification?service=${svc}`, {});
+          showToast('Notifica reinviata agli admin', 'success');
+        } catch (err) {
+          showToast(err.message || 'Errore', 'danger', 5000);
+        } finally {
+          btn.disabled = false;
+        }
       });
     });
 
