@@ -180,6 +180,10 @@ def resend_cash_notification(
 
     summary = calculate_summary(session, day)
 
+    # Per il rinvio NON escludo l'autore: è un'azione di "forzo l'invio"
+    # (es. la prima notifica non è arrivata, vuoi testare), non un evento
+    # secondario di cui informare gli altri. Se l'unico admin sei tu e ti
+    # autoescludi, non riceve nessuno → "Reinvia" sembra non funzionare.
     if service == "lunch":
         if summary.partial_lunch is None:
             raise HTTPException(
@@ -192,7 +196,6 @@ def resend_cash_notification(
             body=f"€ {summary.partial_lunch:.2f} · da {user.full_name} ({day.strftime('%d/%m')})",
             url=f"/cassa?date={day.isoformat()}&tab=lunch",
             tag=f"cash-lunch-{day.isoformat()}",
-            exclude_user_id=user.id,
         )
     else:  # dinner
         if summary.partial_dinner is None:
@@ -210,7 +213,6 @@ def resend_cash_notification(
             body=f"Parziale cena € {summary.partial_dinner:.2f}{total_str} · da {user.full_name} ({day.strftime('%d/%m')})",
             url=f"/cassa?date={day.isoformat()}&tab=total",
             tag=f"cash-dinner-{day.isoformat()}",
-            exclude_user_id=user.id,
         )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

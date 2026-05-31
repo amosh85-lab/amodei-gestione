@@ -17,6 +17,7 @@ import {
   isPushSupported,
   isSubscribed as isPushSubscribed,
   pushPermission,
+  reconcilePushSubscription,
   subscribePush,
   unsubscribePush,
 } from '../../js/push.js';
@@ -129,6 +130,10 @@ export async function mountSettings(container, _params, _query) {
       return;
     }
     const active = await isPushSubscribed().catch(() => false);
+    // Auto-heal: se il browser dice "attive" ma il backend potrebbe non
+    // averla (es. POST fallito al primo subscribe), ri-registriamo in
+    // silenzio. Idempotente lato backend (upsert per endpoint).
+    if (active) reconcilePushSubscription();
     wrap.querySelector('span').innerHTML = active
       ? `Attive ✓ <span class="muted text-xs">su questo dispositivo</span>`
       : `Non attive su questo dispositivo`;

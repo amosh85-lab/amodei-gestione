@@ -78,6 +78,35 @@ export async function subscribePush() {
   return true;
 }
 
+/**
+ * Riconcilia la subscription locale col backend: se il browser ha già una
+ * subscription attiva, ri-invia il POST /push/subscribe (idempotente lato
+ * backend: fa upsert per endpoint). Serve a recuperare situazioni in cui
+ * la subscription esiste nel browser ma è assente nel DB — es. un POST
+ * fallito al primo subscribe perché la tabella non era ancora migrata.
+ *
+ * Best-effort: errori silenziosi (la UI non si rompe se siamo offline o
+ * se l'endpoint è 503). Ritorna true se ha riconciliato, false altrimenti.
+ */
+export async function reconcilePushSubscription() {
+  if (!isPushSupported()) return false;
+  if (pushPermission() !== 'granted') return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return false;
+    const raw = sub.toJSON();
+    await apiPost('/push/subscribe', {
+      endpoint: raw.endpoint,
+      keys: { p256dh: raw.keys.p256dh, auth: raw.keys.auth },
+      user_agent: navigator.userAgent.slice(0, 255),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function unsubscribePush() {
   if (!isPushSupported()) return false;
   const reg = await navigator.serviceWorker.ready;
