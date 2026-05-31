@@ -148,16 +148,16 @@ export async function mountShiftsInsert(container, _params, query) {
             <p class="muted text-xs" style="margin: 2px 0 0 0;">${escapeHtml(r.user.role)}${isExisting ? ' · turno esistente' : ''}</p>
           </div>
         </div>
-        <div style="display: flex; gap: var(--space-8); margin-top: var(--space-12); flex-wrap: wrap;">
-          <div style="flex: 1 1 100px; min-width: 0;">
+        <div style="display: flex; gap: var(--space-8); margin-top: var(--space-12); align-items: flex-end; flex-wrap: wrap;">
+          <div style="flex: 0 0 110px; width: 110px;">
             <label class="muted text-xs" style="display:block;">Inizio</label>
             <input type="time" data-time-idx="${idx}" class="input" value="${escapeAttr(r.start_time)}" style="width: 100%;">
           </div>
-          <div style="flex: 2 1 160px; min-width: 0;">
+          <div style="flex: 1 1 0; min-width: 0;">
             <label class="muted text-xs" style="display:block;">Ore</label>
             <div style="display: flex; align-items: center; gap: var(--space-4);">
               <button type="button" data-step-idx="${idx}" data-delta="-0.5" class="btn btn--secondary" style="flex: 0 0 36px; width: 36px; height: 36px; font-size: 1.2rem; padding: 0;">−</button>
-              <input type="number" data-hours-idx="${idx}" class="input" value="${formatHours(r.hours)}" min="0" max="12" step="0.25" style="flex: 1 1 0; min-width: 0; text-align: center; font-family: var(--font-display); font-size: 1.05rem;">
+              <input type="number" data-hours-idx="${idx}" class="input" value="${formatHours(r.hours)}" min="0" max="12" step="0.25" style="flex: 1 1 0; min-width: 0; width: 100%; text-align: center; font-family: var(--font-display); font-size: 1.05rem;">
               <button type="button" data-step-idx="${idx}" data-delta="+0.5" class="btn btn--secondary" style="flex: 0 0 36px; width: 36px; height: 36px; font-size: 1.2rem; padding: 0;">+</button>
             </div>
           </div>
