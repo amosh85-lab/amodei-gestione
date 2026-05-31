@@ -16,10 +16,10 @@ from app.models.users import User
 from app.schemas.cash_vault import (
     CashVaultBalanceOut,
     CashVaultBaselineIn,
-    CashVaultManualOutIn,
+    CashVaultManualMovementIn,
     CashVaultMovementOut,
 )
-from app.services.cash_vault import compute_balance
+from app.services.cash_vault import compute_balance, rebuild_auto_daily_from_baseline
 
 router = APIRouter(prefix="/cash-vault", tags=["cash-vault"])
 logger = logging.getLogger("amodei.cash_vault")
@@ -77,7 +77,9 @@ def set_baseline(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ) -> CashVaultMovementOut:
-    """Sovrascrive la baseline (cancella la precedente, se esisteva)."""
+    """Sovrascrive la baseline (cancella la precedente, se esisteva) e
+    ricostruisce le auto_daily: rimuove quelle pre-baseline e fa backfill
+    dai DailySummary ≥ baseline_date già esistenti."""
     session.query(CashVaultMovement).filter(
         CashVaultMovement.kind == MovementKind.baseline
     ).delete(synchronize_session=False)
@@ -91,6 +93,8 @@ def set_baseline(
     session.add(row)
     session.commit()
     session.refresh(row)
+    # Riconcilia le entrate automatiche con la nuova baseline.
+    rebuild_auto_daily_from_baseline(session, baseline_date=body.date, user_id=user.id)
     return _attach_creator(session, row)
 
 
@@ -100,7 +104,7 @@ def set_baseline(
     status_code=status.HTTP_201_CREATED,
 )
 def add_manual_out(
-    body: CashVaultManualOutIn,
+    body: CashVaultManualMovementIn,
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ) -> CashVaultMovementOut:
@@ -108,6 +112,31 @@ def add_manual_out(
     row = CashVaultMovement(
         kind=MovementKind.manual_out,
         amount=-Decimal(body.amount),
+        movement_date=body.date,
+        description=body.description.strip(),
+        created_by_user_id=user.id,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _attach_creator(session, row)
+
+
+@router.post(
+    "/movements/in",
+    response_model=CashVaultMovementOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_manual_in(
+    body: CashVaultManualMovementIn,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+) -> CashVaultMovementOut:
+    """Aggiunge un'entrata manuale (es. versamento da conto personale,
+    prelievo bancomat). ``amount`` viene salvato come positivo."""
+    row = CashVaultMovement(
+        kind=MovementKind.manual_in,
+        amount=Decimal(body.amount),
         movement_date=body.date,
         description=body.description.strip(),
         created_by_user_id=user.id,
@@ -138,6 +167,12 @@ def delete_movement(
             status.HTTP_400_BAD_REQUEST,
             "Non si possono cancellare le entrate automatiche da qui — azzera "
             "il cash extra fondo della giornata in /cassa.",
+        )
+    if row.kind == MovementKind.baseline:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Non cancellare la baseline da qui — riassegna con il bottone "
+            "\"Saldo iniziale\" mettendo un nuovo valore o data.",
         )
     session.delete(row)
     session.commit()

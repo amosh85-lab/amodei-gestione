@@ -25,6 +25,7 @@ from app.models.base import AmodeiBase, TimestampMixin, pg_enum
 class MovementKind(str, enum.Enum):
     baseline = "baseline"
     auto_daily = "auto_daily"
+    manual_in = "manual_in"
     manual_out = "manual_out"
 
 

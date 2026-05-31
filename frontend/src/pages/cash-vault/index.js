@@ -53,32 +53,39 @@ export async function mountCashVault(container, _params, _query) {
         <div style="background: var(--ink); color: var(--off-white); border-radius: var(--radius-xl); padding: var(--space-24); box-shadow: var(--shadow-lg);">
           <p style="margin:0; font-size: var(--text-xs); opacity: 0.7; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); color: inherit;">Saldo cassaforte</p>
           <p class="font-display" style="margin: var(--space-8) 0 0 0; font-size: 3rem; font-weight: 600; line-height: 1; color: inherit;">€ ${formatMoney(b.balance)}</p>
-          <div style="margin-top: var(--space-16); padding-top: var(--space-12); border-top: 1px solid rgba(255,255,255,0.15); display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-8); text-align: center;">
+          <div style="margin-top: var(--space-16); padding-top: var(--space-12); border-top: 1px solid rgba(255,255,255,0.15); display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-8); text-align: center;">
             <div>
               <p style="margin:0; font-size: 10px; opacity: 0.6; text-transform: uppercase; color: inherit;">Iniziale</p>
-              <p class="font-display" style="margin: var(--space-4) 0 0 0; color: inherit;">€ ${formatMoney(b.baseline)}</p>
+              <p class="font-display" style="margin: var(--space-4) 0 0 0; font-size: 1rem; color: inherit;">€ ${formatMoney(b.baseline)}</p>
             </div>
             <div>
-              <p style="margin:0; font-size: 10px; opacity: 0.6; text-transform: uppercase; color: inherit;">+ Entrate</p>
-              <p class="font-display" style="margin: var(--space-4) 0 0 0; color: var(--bottle-green, #4f8e3a);">€ ${formatMoney(b.auto_total)}</p>
+              <p style="margin:0; font-size: 10px; opacity: 0.6; text-transform: uppercase; color: inherit;">+ Cassa</p>
+              <p class="font-display" style="margin: var(--space-4) 0 0 0; font-size: 1rem; color: var(--bottle-green, #4f8e3a);">€ ${formatMoney(b.auto_total)}</p>
+            </div>
+            <div>
+              <p style="margin:0; font-size: 10px; opacity: 0.6; text-transform: uppercase; color: inherit;">+ Manuali</p>
+              <p class="font-display" style="margin: var(--space-4) 0 0 0; font-size: 1rem; color: var(--bottle-green, #4f8e3a);">€ ${formatMoney(b.manual_in_total)}</p>
             </div>
             <div>
               <p style="margin:0; font-size: 10px; opacity: 0.6; text-transform: uppercase; color: inherit;">− Uscite</p>
-              <p class="font-display" style="margin: var(--space-4) 0 0 0; color: var(--terracotta);">€ ${formatMoney(b.manual_out_total)}</p>
+              <p class="font-display" style="margin: var(--space-4) 0 0 0; font-size: 1rem; color: var(--terracotta);">€ ${formatMoney(b.manual_out_total)}</p>
             </div>
           </div>
           ${b.baseline_date ? `<p class="text-xs" style="margin: var(--space-12) 0 0 0; opacity: 0.55; color: inherit;">Saldo iniziale impostato al ${humanDate(b.baseline_date)}</p>` : ''}
         </div>
 
         <!-- Actions -->
-        <div class="row" style="gap: var(--space-8); margin-top: var(--space-16);">
-          <button type="button" id="add-out" class="btn btn--primary btn--lg" style="flex: 1;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); margin-top: var(--space-16);">
+          <button type="button" id="add-in" class="btn btn--secondary btn--lg" style="border-color: var(--bottle-green, #4f8e3a); color: var(--bottle-green, #4f8e3a);">
+            ${icon('plus', { size: 18 })}<span>Aggiungi entrata</span>
+          </button>
+          <button type="button" id="add-out" class="btn btn--primary btn--lg">
             ${icon('plus', { size: 18 })}<span>Aggiungi uscita</span>
           </button>
-          <button type="button" id="set-baseline" class="btn btn--secondary btn--lg" style="flex: 1;">
-            ${icon('edit', { size: 18 })}<span>Saldo iniziale</span>
-          </button>
         </div>
+        <button type="button" id="set-baseline" class="btn btn--ghost full-width" style="margin-top: var(--space-8);">
+          ${icon('edit', { size: 16 })}<span>Modifica saldo iniziale</span>
+        </button>
 
         <!-- Movimenti del mese corrente -->
         <div style="margin-top: var(--space-20);">
@@ -101,8 +108,10 @@ export async function mountCashVault(container, _params, _query) {
       ? '<span class="badge" style="background: var(--cream-soft); color: var(--ink-muted); font-size: var(--text-xs);">iniziale</span>'
       : m.kind === 'auto_daily'
         ? '<span class="badge" style="background: rgba(79,142,58,0.12); color: var(--bottle-green, #4f8e3a); font-size: var(--text-xs);">auto fine giornata</span>'
-        : '<span class="badge" style="background: rgba(181,57,31,0.10); color: var(--terracotta-dark); font-size: var(--text-xs);">uscita</span>';
-    const canDelete = m.kind === 'manual_out';
+        : m.kind === 'manual_in'
+          ? '<span class="badge" style="background: rgba(79,142,58,0.12); color: var(--bottle-green, #4f8e3a); font-size: var(--text-xs);">entrata manuale</span>'
+          : '<span class="badge" style="background: rgba(181,57,31,0.10); color: var(--terracotta-dark); font-size: var(--text-xs);">uscita</span>';
+    const canDelete = m.kind === 'manual_in' || m.kind === 'manual_out';
     return `
       <div class="row" style="gap: var(--space-12); padding: var(--space-12) 0; border-top: 1px solid var(--border-soft);">
         <div class="flex-1" style="min-width:0;">
@@ -116,7 +125,8 @@ export async function mountCashVault(container, _params, _query) {
   }
 
   function wire() {
-    container.querySelector('#add-out')?.addEventListener('click', openAddOutModal);
+    container.querySelector('#add-in')?.addEventListener('click', () => openManualMovementModal('in'));
+    container.querySelector('#add-out')?.addEventListener('click', () => openManualMovementModal('out'));
     container.querySelector('#set-baseline')?.addEventListener('click', openBaselineModal);
     container.querySelectorAll('[data-del]').forEach((b) => {
       b.addEventListener('click', async () => {
@@ -134,38 +144,45 @@ export async function mountCashVault(container, _params, _query) {
     });
   }
 
-  function openAddOutModal() {
+  function openManualMovementModal(direction) {
+    const isIn = direction === 'in';
+    const title = isIn ? 'Nuova entrata' : 'Nuova uscita';
+    const placeholder = isIn
+      ? 'es. Versamento da conto personale'
+      : 'es. Pagamento fornitore X';
+    const endpoint = isIn ? '/cash-vault/movements/in' : '/cash-vault/movements';
+    const successMsg = isIn ? 'Entrata registrata' : 'Uscita registrata';
     const today = new Date().toISOString().slice(0, 10);
     const body = `
-      <form id="out-form" class="stack-12" onsubmit="return false">
+      <form id="mv-form" class="stack-12" onsubmit="return false">
         <div class="form-row">
-          <label class="label label--required" for="out-amount">Importo €</label>
-          <input id="out-amount" type="number" class="input" step="0.01" min="0.01" inputmode="decimal" required>
+          <label class="label label--required" for="mv-amount">Importo €</label>
+          <input id="mv-amount" type="number" class="input" step="0.01" min="0.01" inputmode="decimal" required>
         </div>
         <div class="form-row">
-          <label class="label label--required" for="out-desc">Causale</label>
-          <input id="out-desc" class="input" maxlength="255" required placeholder="es. Pagamento fornitore X">
+          <label class="label label--required" for="mv-desc">Causale</label>
+          <input id="mv-desc" class="input" maxlength="255" required placeholder="${escapeAttr(placeholder)}">
         </div>
         <div class="form-row">
-          <label class="label label--required" for="out-date">Data</label>
-          <input id="out-date" type="date" class="input" required value="${today}">
+          <label class="label label--required" for="mv-date">Data</label>
+          <input id="mv-date" type="date" class="input" required value="${today}">
         </div>
       </form>
     `;
-    const close = showModal('Nuova uscita', body, [
+    const close = showModal(title, body, [
       { label: 'Annulla', variant: 'ghost' },
       {
         label: 'Salva', variant: 'primary', closeOnClick: false,
         onClick: async () => {
-          const amount = parseFloat(document.getElementById('out-amount').value);
-          const description = document.getElementById('out-desc').value.trim();
-          const date = document.getElementById('out-date').value;
+          const amount = parseFloat(document.getElementById('mv-amount').value);
+          const description = document.getElementById('mv-desc').value.trim();
+          const date = document.getElementById('mv-date').value;
           if (!(amount > 0)) { showToast('Importo non valido', 'warn'); return; }
           if (!description) { showToast('Causale obbligatoria', 'warn'); return; }
           if (!date) { showToast('Data obbligatoria', 'warn'); return; }
           try {
-            await apiPost('/cash-vault/movements', { amount: amount.toFixed(2), description, date });
-            showToast('Uscita registrata', 'success');
+            await apiPost(endpoint, { amount: amount.toFixed(2), description, date });
+            showToast(successMsg, 'success');
             close();
             await load();
           } catch (err) {
@@ -181,7 +198,7 @@ export async function mountCashVault(container, _params, _query) {
     const b = state.balance || {};
     const todayIso = new Date().toISOString().slice(0, 10);
     const body = `
-      <p class="muted text-sm" style="margin: 0 0 var(--space-12) 0;">Il saldo iniziale è il contante che hai in cassaforte ALLA DATA scelta. Da quel momento il saldo cresce con le entrate automatiche (cash fine serata) e cala con le uscite registrate. Sovrascrive l'eventuale baseline precedente.</p>
+      <p class="muted text-sm" style="margin: 0 0 var(--space-12) 0;">Il saldo iniziale è il contante che hai in cassaforte <strong>la mattina della data scelta</strong>. Dalla chiusura cassa di quel giorno in poi, il saldo cresce automaticamente con il cash di fine serata di ogni giornata già registrata in /cassa (anche i giorni passati vengono recuperati). Cala con le uscite manuali. Sovrascrive l'eventuale baseline precedente.</p>
       <form id="bl-form" class="stack-12" onsubmit="return false">
         <div class="form-row">
           <label class="label label--required" for="bl-amount">Saldo iniziale €</label>
@@ -233,4 +250,7 @@ function humanDate(iso) {
 }
 function escapeHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function escapeAttr(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }

@@ -368,7 +368,7 @@ async function loadVaultCard() {
       </div>
       <p class="font-display" style="margin: 6px 0 0 0; font-size: 2rem; font-weight: 700; line-height: 1.1; color: var(--ink);">€ ${fmtThousands(data.balance)}</p>
       <p class="muted text-xs" style="margin: 4px 0 0 0;">
-        Iniziale € ${fmtThousands(data.baseline)} · entrate € ${fmtThousands(data.auto_total)} · uscite € ${fmtThousands(data.manual_out_total)}
+        Iniziale € ${fmtThousands(data.baseline)} · cassa € ${fmtThousands(data.auto_total)} · manuali € ${fmtThousands(data.manual_in_total || 0)} · uscite € ${fmtThousands(data.manual_out_total)}
       </p>
       <div style="margin-top: 10px;">${movHtml}</div>
     </div>
