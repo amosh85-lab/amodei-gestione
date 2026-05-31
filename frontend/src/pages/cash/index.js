@@ -57,7 +57,12 @@ export async function mountCashPage(container, _params, query) {
     try {
       const canSeeAdvances = userHasRole('admin', 'manager');
       const [summary, posList, expensesList, advancesList] = await Promise.all([
-        apiGet(`/daily-summary/${state.date === todayIso() ? 'today' : state.date}`).catch(async (err) => {
+        // Usa sempre la data esplicita, MAI /today: l'endpoint /today usa
+        // date.today() lato server (UTC) → in certe fasce orarie italiane si
+        // disallinea da state.date (calcolato in timezone locale). Bug
+        // sintomo "cash salvato ma non appare": PATCH andava su /{date},
+        // GET successivo su /today → vedeva un altro giorno.
+        apiGet(`/daily-summary/${state.date}`).catch(async (err) => {
           // GET /{date} returns 404 for past days with no row — fall back to PATCH to seed
           if (err.status === 404) {
             const created = await apiPatch(`/daily-summary/${state.date}`, {});
