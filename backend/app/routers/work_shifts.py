@@ -294,6 +294,8 @@ def monthly_payroll(
             total_hours=row["total_hours"],
             gross_amount=row["gross_amount"],
             advances_taken=row["advances_taken"],
+            advances_cash=row["advances_cash"],
+            advances_bonifico=row["advances_bonifico"],
             advances_settled_in_month=row["advances_settled_in_month"],
             net_to_pay=row["net_to_pay"],
             has_unsettled_advances=row["has_unsettled_advances"],

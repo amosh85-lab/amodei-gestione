@@ -93,6 +93,7 @@ def _advances_totals(session: Session, day: date_type) -> tuple[Decimal, Decimal
     rows = session.execute(
         select(EmployeeAdvance.service, func.sum(EmployeeAdvance.amount))
         .where(EmployeeAdvance.date == day)
+        .where(EmployeeAdvance.payment_method == "cash")
         .group_by(EmployeeAdvance.service)
     ).all()
     lunch = ZERO

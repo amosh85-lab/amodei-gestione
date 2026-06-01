@@ -56,6 +56,7 @@ from app.models.cash_vault import CashVaultMovement, MovementKind
 from app.models.push import PushSubscription
 from app.models.users import User, UserRole
 from app.models.work_shifts import WorkShift
+from app.models.payroll_split import PayrollSplit
 
 __all__ = [
     # base
@@ -115,4 +116,6 @@ __all__ = [
     # cash vault
     "CashVaultMovement",
     "MovementKind",
+    # payroll splits (Ben/Dan)
+    "PayrollSplit",
 ]

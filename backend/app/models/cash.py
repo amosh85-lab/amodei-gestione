@@ -125,6 +125,11 @@ class EmployeeAdvance(AmodeiBase, TimestampMixin):
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     receipt_photo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Metodo di pagamento dell'acconto: 'cash' (default, dato dal cassetto) o
+    # 'bonifico' (trasferimento bancario). Solo 'cash' impatta la cassa.
+    payment_method: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="cash",
+    )
     # Per quale STIPENDIO mensile l'acconto va imputato (formato YYYY-MM).
     # Diverso da `date` (quando è stato dato fisicamente dal cassetto): es. il
     # 3 giugno do un anticipo a Marco riferito allo stipendio di MAGGIO che si
@@ -160,6 +165,10 @@ class EmployeeAdvance(AmodeiBase, TimestampMixin):
         CheckConstraint(
             r"reference_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
             name="ck_employee_advances_reference_month_format",
+        ),
+        CheckConstraint(
+            "payment_method IN ('cash', 'bonifico')",
+            name="ck_employee_advances_payment_method",
         ),
         Index("ix_employee_advances_date_service", "date", "service"),
         Index("ix_employee_advances_user_settled", "user_id", "settled_at"),

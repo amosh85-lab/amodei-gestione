@@ -29,6 +29,7 @@ from app.routers import (
     movements as movements_router,
     orders as orders_router,
     payments as payments_router,
+    payroll_splits as payroll_splits_router,
     pos_sessions as pos_sessions_router,
     products as products_router,
     push as push_router,
@@ -154,6 +155,7 @@ app.include_router(daily_summary_router.router)
 app.include_router(cash_export_router.router)
 app.include_router(cash_vault_router.router)
 app.include_router(advances_router.router)
+app.include_router(payroll_splits_router.router)
 app.include_router(invoices_router.router)
 app.include_router(payments_router.router)
 app.include_router(foodcost_router.router)

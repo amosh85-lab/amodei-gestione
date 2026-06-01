@@ -4,11 +4,11 @@
 // KPI mese + card per dipendente con bottone "Marca acconti saldati"
 // che chiama POST /work-shifts/monthly-payroll/{user_id}/settle-advances.
 
-import { apiGet, apiPost, ApiError } from '../../js/api.js';
+import { apiGet, apiPost, apiPut, apiUpload, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
-import { showModal, showToast, skeletonList } from '../../js/components.js';
+import { showModal, showToast, skeletonList, parseNumberInput } from '../../js/components.js';
 
 export async function mountPayrollDashboard(container, _params, query) {
   setHeader({ title: 'Stipendi', brand: true, backHref: '/' });
@@ -27,14 +27,18 @@ export async function mountPayrollDashboard(container, _params, query) {
   async function load() {
     try {
       const monthlyRange = monthIso(state.year, state.month);
-      const [payroll, summaries] = await Promise.all([
+      const refMonth = `${state.year}-${String(state.month).padStart(2, '0')}`;
+      const [payroll, summaries, splits] = await Promise.all([
         apiGet(`/work-shifts/monthly-payroll?year=${state.year}&month=${state.month}`),
         apiGet(`/daily-summary?from=${monthlyRange.from}&to=${monthlyRange.to}&limit=365`).catch(() => []),
+        apiGet(`/payroll-splits?payroll_month=${refMonth}`).catch(() => []),
       ]);
       const monthlyRevenue = summaries.reduce((acc, s) => acc + (summaryRevenue(s) ?? 0), 0);
       applyManagerBonus(payroll, monthlyRevenue);
       state.data = payroll;
       state.monthlyRevenue = monthlyRevenue;
+      state.splits = {};
+      for (const s of splits) state.splits[s.user_id] = s;
       render();
     } catch (err) {
       container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">
@@ -78,6 +82,7 @@ export async function mountPayrollDashboard(container, _params, query) {
         ${renderMonthNav()}
         ${renderKpi(d.totals)}
         ${renderUserList(d.by_user)}
+        ${renderBenDanSection(d.by_user)}
       </section>
     `;
     wire();
@@ -181,6 +186,7 @@ export async function mountPayrollDashboard(container, _params, query) {
           ${r.has_unsettled_advances && Number(r.advances_taken) > 0
             ? `<button type="button" data-settle="${u.id}" class="btn btn--primary btn--sm">${icon('check', { size: 14 })} Marca acconti saldati</button>`
             : ''}
+          <button type="button" data-addadv="${u.id}" class="btn btn--secondary btn--sm">${icon('cash', { size: 14 })} Aggiungi acconto</button>
           <button type="button" data-detail="${u.id}" class="btn btn--ghost btn--sm">Vedi turni del mese</button>
         </div>
       </div>
@@ -212,6 +218,12 @@ export async function mountPayrollDashboard(container, _params, query) {
         navigate('/impostazioni');
       });
     });
+    container.querySelectorAll('[data-split]').forEach((b) => {
+      b.addEventListener('click', () => openSplitModal(Number(b.dataset.split)));
+    });
+    container.querySelectorAll('[data-addadv]').forEach((b) => {
+      b.addEventListener('click', () => openAdvanceModal(Number(b.dataset.addadv)));
+    });
   }
 
   function openSettleModal(userId) {
@@ -242,6 +254,199 @@ export async function mountPayrollDashboard(container, _params, query) {
         },
       ],
     );
+  }
+
+  // -----------------------------------------------------------------
+  // Aggiungi acconto manuale (cash o bonifico)
+
+  function openAdvanceModal(userId) {
+    const r = state.data.by_user.find((x) => x.user.id === userId);
+    if (!r) return;
+    const refMonth = `${state.year}-${String(state.month).padStart(2, '0')}`;
+    const today = new Date().toISOString().slice(0, 10);
+    const body = `
+      <form id="adv-form" class="stack-12">
+        <p class="muted text-sm" style="margin:0;">Acconto per <strong>${escapeHtml(r.user.full_name)}</strong>, riferito allo stipendio di <strong>${escapeHtml(state.data.month_label)}</strong>.</p>
+        <div class="form-row">
+          <label class="label label--required">Metodo</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap: var(--space-8);">
+            <label style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-8);border:1px solid var(--border-soft);border-radius:var(--radius-md);cursor:pointer;">
+              <input type="radio" name="adv-method" value="cash" checked> Contanti
+            </label>
+            <label style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-8);border:1px solid var(--border-soft);border-radius:var(--radius-md);cursor:pointer;">
+              <input type="radio" name="adv-method" value="bonifico"> Bonifico
+            </label>
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="label label--required" for="adv-amount">Importo (€)</label>
+          <input id="adv-amount" class="input" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="es. 200,00" />
+        </div>
+        <div class="form-row">
+          <label class="label label--required" for="adv-date">Data</label>
+          <input id="adv-date" class="input" type="date" value="${today}" required />
+        </div>
+        <div class="form-row">
+          <label class="label" for="adv-notes">Note (opzionale)</label>
+          <textarea id="adv-notes" class="textarea" rows="2" maxlength="500"></textarea>
+        </div>
+      </form>
+    `;
+    showModal('Aggiungi acconto', body, [
+      { label: 'Annulla', variant: 'ghost' },
+      {
+        label: 'Salva',
+        variant: 'primary',
+        closeOnClick: false,
+        onClick: async () => {
+          const method = document.querySelector('input[name="adv-method"]:checked')?.value;
+          const amount = document.getElementById('adv-amount').value;
+          const datePaid = document.getElementById('adv-date').value;
+          const notes = document.getElementById('adv-notes').value.trim();
+          if (!method) { showToast('Seleziona il metodo', 'warn'); return; }
+          if (!(Number(amount) > 0)) { showToast('Importo non valido', 'warn'); return; }
+          if (!datePaid) { showToast('Inserisci la data', 'warn'); return; }
+          const fd = new FormData();
+          fd.append('user_id', String(userId));
+          fd.append('amount', amount);
+          fd.append('service', 'lunch'); // richiesto NOT NULL, irrilevante per il calcolo Ben/Dan
+          fd.append('date', datePaid);
+          fd.append('reference_month', refMonth);
+          fd.append('payment_method', method);
+          if (notes) fd.append('notes', notes);
+          try {
+            await apiUpload('/advances', fd);
+            showToast('Acconto registrato', 'success');
+            document.querySelectorAll('.modal-backdrop').forEach((bd) => bd.remove());
+            await load();
+          } catch (err) {
+            const msg = err instanceof ApiError && err.message ? err.message : 'Errore';
+            showToast(msg, 'danger', 5000);
+          }
+        },
+      },
+    ]);
+  }
+
+  // -----------------------------------------------------------------
+  // Ripartizione Ben / Dan
+
+  function renderBenDanSection(rows) {
+    if (!rows || rows.length === 0) return '';
+    return `
+      <h2 style="margin: var(--space-24) 0 var(--space-8) 0; font-family: var(--font-display); font-size: var(--text-lg);">Ripartizione Ben / Dan</h2>
+      <p class="muted text-xs" style="margin: 0 0 var(--space-8) 0;">
+        Ben = parte da pagare tramite <strong>bonifico</strong>. Dan = parte da pagare in <strong>contanti</strong>. Imposta tu i target; gli acconti sono presi automaticamente dalla sezione "Stipendi".
+      </p>
+      <div class="card" style="padding: 0; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <table style="width:100%; min-width: 760px; border-collapse: collapse; font-size: var(--text-sm);">
+          <thead style="background: var(--cream-soft);">
+            <tr>
+              <th style="text-align:left; padding: var(--space-8) var(--space-12); font-weight:600;">Dipendente</th>
+              <th style="text-align:right; padding: var(--space-8);">Totale</th>
+              <th style="text-align:right; padding: var(--space-8); color: #2980b9;">Ben</th>
+              <th style="text-align:right; padding: var(--space-8); color: var(--terracotta);">Dan</th>
+              <th style="text-align:right; padding: var(--space-8);">Acconti <span class="muted text-xs">(B/C)</span></th>
+              <th style="text-align:right; padding: var(--space-8);">Rest.</th>
+              <th style="text-align:right; padding: var(--space-8); color: #2980b9;">Rest. Ben</th>
+              <th style="text-align:right; padding: var(--space-8); color: var(--terracotta);">Rest. Dan</th>
+              <th style="padding: var(--space-8);"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(renderBenDanRow).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderBenDanRow(r) {
+    const u = r.user;
+    const split = state.splits?.[u.id];
+    const ben = split ? Number(split.ben_amount) : 0;
+    const dan = split ? Number(split.dan_amount) : 0;
+    const totale = Number(r.gross_amount || 0);
+    const accBonifico = Number(r.advances_bonifico || 0);
+    const accCash = Number(r.advances_cash || 0);
+    const accTot = accBonifico + accCash;
+    const restTot = totale - accTot;
+    const restBen = ben - accBonifico;
+    const restDan = dan - accCash;
+    const splitTot = ben + dan;
+    const mismatch = split && Math.abs(splitTot - totale) > 0.01;
+    return `
+      <tr style="border-top: 1px solid var(--border-soft);">
+        <td style="padding: var(--space-8) var(--space-12);">
+          <span style="font-weight:500;">${escapeHtml(u.full_name)}</span>
+          ${mismatch ? `<br><span class="text-xs" style="color: var(--warning, #c9942a);">⚠ Ben+Dan (€ ${fmt(splitTot)}) ≠ Totale</span>` : ''}
+        </td>
+        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display);">€ ${fmt(totale)}</td>
+        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display); color: #2980b9;">€ ${fmt(ben)}</td>
+        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display); color: var(--terracotta);">€ ${fmt(dan)}</td>
+        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display);">
+          € ${fmt(accBonifico)} <span class="muted text-xs">B</span><br>
+          € ${fmt(accCash)} <span class="muted text-xs">C</span>
+        </td>
+        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display); font-weight:600;">€ ${fmt(restTot)}</td>
+        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display); color: #2980b9; font-weight:600;">€ ${fmt(restBen)}</td>
+        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display); color: var(--terracotta); font-weight:600;">€ ${fmt(restDan)}</td>
+        <td style="padding: var(--space-8); text-align:center;">
+          <button type="button" data-split="${u.id}" class="btn btn--ghost btn--sm" aria-label="Modifica Ben/Dan">${icon('edit', { size: 14 })}</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  function openSplitModal(userId) {
+    const r = state.data.by_user.find((x) => x.user.id === userId);
+    if (!r) return;
+    const split = state.splits?.[userId];
+    const totale = Number(r.gross_amount || 0);
+    const refMonth = `${state.year}-${String(state.month).padStart(2, '0')}`;
+    const body = `
+      <form id="split-form" class="stack-12">
+        <p class="muted text-sm" style="margin:0;">Ripartizione per <strong>${escapeHtml(r.user.full_name)}</strong>, ${escapeHtml(state.data.month_label)}.</p>
+        <p class="muted text-xs" style="margin:0;">Totale stipendio: <strong>€ ${fmt(totale)}</strong>. Suggerimento: la somma di Ben + Dan dovrebbe quadrare col totale.</p>
+        <div class="form-row">
+          <label class="label" for="split-ben">Ben (bonifico) €</label>
+          <input id="split-ben" class="input" type="number" min="0" step="0.01" inputmode="decimal" value="${split ? Number(split.ben_amount).toFixed(2) : ''}" placeholder="0,00" />
+        </div>
+        <div class="form-row">
+          <label class="label" for="split-dan">Dan (contanti) €</label>
+          <input id="split-dan" class="input" type="number" min="0" step="0.01" inputmode="decimal" value="${split ? Number(split.dan_amount).toFixed(2) : ''}" placeholder="0,00" />
+        </div>
+      </form>
+    `;
+    showModal('Imposta Ben / Dan', body, [
+      { label: 'Annulla', variant: 'ghost' },
+      {
+        label: 'Salva',
+        variant: 'primary',
+        closeOnClick: false,
+        onClick: async () => {
+          const benRaw = document.getElementById('split-ben').value.trim();
+          const danRaw = document.getElementById('split-dan').value.trim();
+          const ben = benRaw === '' ? 0 : Number(benRaw);
+          const dan = danRaw === '' ? 0 : Number(danRaw);
+          if (!(ben >= 0) || !(dan >= 0)) { showToast('Importi non validi', 'warn'); return; }
+          try {
+            await apiPut('/payroll-splits', {
+              user_id: userId,
+              payroll_month: refMonth,
+              ben_amount: ben.toFixed(2),
+              dan_amount: dan.toFixed(2),
+            });
+            showToast('Ripartizione salvata', 'success');
+            document.querySelectorAll('.modal-backdrop').forEach((bd) => bd.remove());
+            await load();
+          } catch (err) {
+            const msg = err instanceof ApiError && err.message ? err.message : 'Errore';
+            showToast(msg, 'danger', 5000);
+          }
+        },
+      },
+    ]);
   }
 }
 

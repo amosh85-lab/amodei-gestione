@@ -130,6 +130,8 @@ class MonthlyPayrollByUser(BaseModel):
     total_hours: Decimal
     gross_amount: Decimal | None = None       # None se hourly_rate non set
     advances_taken: Decimal                   # filtro reference_month=YYYY-MM
+    advances_cash: Decimal = Decimal("0")     # solo payment_method=cash
+    advances_bonifico: Decimal = Decimal("0") # solo payment_method=bonifico
     advances_settled_in_month: Decimal        # filtro settled_in_payroll_month=YYYY-MM
     net_to_pay: Decimal | None = None         # None se hourly_rate non set
     has_unsettled_advances: bool

@@ -120,6 +120,8 @@ def create_advance(
     notes: str | None = Form(None),
     reference_month: str | None = Form(None, pattern=REFERENCE_MONTH_PATTERN,
                                          description="YYYY-MM. Se omesso → default da date."),
+    payment_method: Literal["cash", "bonifico"] = Form("cash",
+                                                        description="Metodo di pagamento dell'acconto."),
     receipt_photo: UploadFile | None = File(None),
     session: Session = Depends(get_session),
     actor: User = Depends(require_manager_or_admin),
@@ -152,6 +154,7 @@ def create_advance(
         receipt_photo_url=photo_url,
         created_by_user_id=actor.id,
         reference_month=eff_ref_month,
+        payment_method=payment_method,
     )
     session.add(adv)
     session.commit()

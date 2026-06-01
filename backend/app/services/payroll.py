@@ -128,13 +128,31 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
         ) or ZERO
         total_hours = _q2(total_hours)
 
-        # Acconti riferiti a questo mese (reference_month)
+        # Acconti riferiti a questo mese (reference_month) — totale (cash+bonifico)
         adv_for_month = session.scalar(
             select(func.coalesce(func.sum(EmployeeAdvance.amount), 0))
             .where(EmployeeAdvance.user_id == u.id)
             .where(EmployeeAdvance.reference_month == payroll_str)
         ) or ZERO
         adv_for_month = _q2(adv_for_month)
+
+        # Solo cash
+        adv_cash_for_month = session.scalar(
+            select(func.coalesce(func.sum(EmployeeAdvance.amount), 0))
+            .where(EmployeeAdvance.user_id == u.id)
+            .where(EmployeeAdvance.reference_month == payroll_str)
+            .where(EmployeeAdvance.payment_method == "cash")
+        ) or ZERO
+        adv_cash_for_month = _q2(adv_cash_for_month)
+
+        # Solo bonifico
+        adv_bonifico_for_month = session.scalar(
+            select(func.coalesce(func.sum(EmployeeAdvance.amount), 0))
+            .where(EmployeeAdvance.user_id == u.id)
+            .where(EmployeeAdvance.reference_month == payroll_str)
+            .where(EmployeeAdvance.payment_method == "bonifico")
+        ) or ZERO
+        adv_bonifico_for_month = _q2(adv_bonifico_for_month)
 
         # Acconti già marcati come settled IN questa busta paga
         adv_settled = session.scalar(
@@ -199,6 +217,8 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
             "total_hours": total_hours,
             "gross_amount": gross,
             "advances_taken": adv_for_month,
+            "advances_cash": adv_cash_for_month,
+            "advances_bonifico": adv_bonifico_for_month,
             "advances_settled_in_month": adv_settled,
             "net_to_pay": net,
             "has_unsettled_advances": unsettled_count > 0,
