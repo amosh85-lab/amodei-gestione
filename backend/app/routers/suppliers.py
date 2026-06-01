@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_session
@@ -13,7 +13,9 @@ from app.dependencies.auth import (
     require_admin,
     require_manager_or_admin,
 )
-from app.models.inventory import Supplier
+from app.models.inventory import Batch, Product, Supplier
+from app.models.invoices import Invoice
+from app.models.reorder import SupplierOrder
 from app.models.users import User
 from app.schemas.suppliers import SupplierCreate, SupplierOut, SupplierUpdate
 
@@ -98,3 +100,62 @@ def delete_supplier(
     supplier.active = False
     session.commit()
     logger.info("Supplier soft-deleted id=%d by user_id=%d", supplier.id, user.id)
+
+
+@router.delete(
+    "/{supplier_id}/permanent",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+def hard_delete_supplier(
+    supplier_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+) -> None:
+    """Elimina DEFINITIVAMENTE un fornitore dal DB. Tre vincoli:
+    1) deve esistere (404 altrimenti)
+    2) deve essere già archiviato (active=False) — niente delete diretto
+       di un fornitore attivo, sarebbe troppo facile sparire dati per
+       sbaglio. Prima archivia (DELETE soft), poi elimina.
+    3) non deve avere righe figlie su products / batches / invoices /
+       supplier_orders (le FK sono RESTRICT). Se ne ha, ritorno 409
+       con il dettaglio dei conteggi per categoria.
+    """
+    supplier = session.get(Supplier, supplier_id)
+    if supplier is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Fornitore non trovato")
+    if supplier.active:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Prima archivia il fornitore (DELETE), poi puoi eliminarlo definitivamente.",
+        )
+
+    counts = {
+        "products": session.scalar(
+            select(func.count()).select_from(Product).where(Product.preferred_supplier_id == supplier_id)
+        ) or 0,
+        "batches": session.scalar(
+            select(func.count()).select_from(Batch).where(Batch.supplier_id == supplier_id)
+        ) or 0,
+        "invoices": session.scalar(
+            select(func.count()).select_from(Invoice).where(Invoice.supplier_id == supplier_id)
+        ) or 0,
+        "orders": session.scalar(
+            select(func.count()).select_from(SupplierOrder).where(SupplierOrder.supplier_id == supplier_id)
+        ) or 0,
+    }
+    total = sum(counts.values())
+    if total > 0:
+        bits = [f"{v} {k}" for k, v in counts.items() if v]
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Impossibile eliminare definitivamente: ci sono ancora riferimenti ({', '.join(bits)}). "
+            "Riassegna o cancella prima questi record.",
+        )
+
+    session.delete(supplier)
+    session.commit()
+    logger.warning(
+        "Supplier HARD-DELETED id=%d name=%r by user_id=%d",
+        supplier_id, supplier.name, user.id,
+    )

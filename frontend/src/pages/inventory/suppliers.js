@@ -2,6 +2,7 @@
 
 import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
+import { userHasRole } from '../../js/auth.js';
 import { icon } from '../../js/icons.js';
 import { showToast, showModal, confirmDialog, skeletonList } from '../../js/components.js';
 
@@ -202,6 +203,33 @@ export function mountInventorySuppliers(container) {
             refresh();
           } catch (err) {
             showToast(err.message || 'Errore disattivazione', 'danger', 5000);
+          }
+        },
+      });
+    }
+    // Hard delete: solo admin, e solo su fornitori già archiviati. Pensato
+    // per ripulire duplicati creati per sbaglio che non hanno mai avuto
+    // lotti/fatture/ordini. Il backend rifiuta con 409 se ci sono refs.
+    if (!isNew && !s.active && userHasRole('admin')) {
+      actions.unshift({
+        label: 'Elimina definitivamente',
+        variant: 'danger',
+        closeOnClick: false,
+        onClick: async (close) => {
+          const ok = await confirmDialog(
+            `Eliminare definitivamente "${s.name}"?`,
+            'La riga sarà rimossa dal database. Si può fare solo se il fornitore non ha mai avuto lotti, fatture o ordini collegati. L\'azione è irreversibile.',
+            { confirmLabel: 'Elimina', cancelLabel: 'Annulla', danger: true },
+          );
+          if (!ok) return;
+          try {
+            await apiDelete(`/suppliers/${s.id}/permanent`);
+            showToast('Fornitore eliminato definitivamente', 'success');
+            close();
+            refresh();
+          } catch (err) {
+            const msg = err instanceof ApiError ? (err.detail || err.message) : (err.message || 'Errore');
+            showToast(msg, 'danger', 6000);
           }
         },
       });
