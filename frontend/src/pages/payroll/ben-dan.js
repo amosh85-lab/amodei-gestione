@@ -54,24 +54,7 @@ export async function mountBenDan(container, _params, query) {
         </p>
         ${rows.length === 0
           ? `<p class="muted" style="text-align:center; padding: var(--space-20); background: var(--cream-soft); border-radius: var(--radius-md);">Nessun dipendente attivo.</p>`
-          : `<div class="card" style="padding: 0; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-              <table style="width:100%; min-width: 760px; border-collapse: collapse; font-size: var(--text-sm);">
-                <thead style="background: var(--cream-soft);">
-                  <tr>
-                    <th style="text-align:left; padding: var(--space-8) var(--space-12); font-weight:600;">Dipendente</th>
-                    <th style="text-align:right; padding: var(--space-8);">Totale</th>
-                    <th style="text-align:right; padding: var(--space-8); color: #2980b9;">Ben</th>
-                    <th style="text-align:right; padding: var(--space-8); color: var(--terracotta);">Dan</th>
-                    <th style="text-align:right; padding: var(--space-8);">Acconti <span class="muted text-xs">(B/C)</span></th>
-                    <th style="text-align:right; padding: var(--space-8);">Rest.</th>
-                    <th style="text-align:right; padding: var(--space-8); color: #2980b9;">Rest. Ben</th>
-                    <th style="text-align:right; padding: var(--space-8); color: var(--terracotta);">Rest. Dan</th>
-                    <th style="padding: var(--space-8);"></th>
-                  </tr>
-                </thead>
-                <tbody>${rows.map(renderRow).join('')}</tbody>
-              </table>
-            </div>`}
+          : rows.map(renderCard).join('')}
       </section>
     `;
     wire();
@@ -88,7 +71,7 @@ export async function mountBenDan(container, _params, query) {
     `;
   }
 
-  function renderRow(r) {
+  function renderCard(r) {
     const u = r.user;
     const split = state.splits?.[u.id];
     const ben = split ? Number(split.ben_amount) : 0;
@@ -103,25 +86,40 @@ export async function mountBenDan(container, _params, query) {
     const splitTot = ben + dan;
     const mismatch = split && Math.abs(splitTot - totale) > 0.01;
     return `
-      <tr style="border-top: 1px solid var(--border-soft);">
-        <td style="padding: var(--space-8) var(--space-12);">
-          <span style="font-weight:500;">${escapeHtml(u.full_name)}</span>
-          ${mismatch ? `<br><span class="text-xs" style="color: var(--warning, #c9942a);">⚠ Ben+Dan (€ ${fmt(splitTot)}) ≠ Totale</span>` : ''}
-        </td>
-        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display);">€ ${fmt(totale)}</td>
-        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display); color: #2980b9;">€ ${fmt(ben)}</td>
-        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display); color: var(--terracotta);">€ ${fmt(dan)}</td>
-        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display);">
-          € ${fmt(accBonifico)} <span class="muted text-xs">B</span><br>
-          € ${fmt(accCash)} <span class="muted text-xs">C</span>
-        </td>
-        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display); font-weight:600;">€ ${fmt(restTot)}</td>
-        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display); color: #2980b9; font-weight:600;">€ ${fmt(restBen)}</td>
-        <td style="padding: var(--space-8); text-align:right; font-family: var(--font-display); color: var(--terracotta); font-weight:600;">€ ${fmt(restDan)}</td>
-        <td style="padding: var(--space-8); text-align:center;">
-          <button type="button" data-split="${u.id}" class="btn btn--ghost btn--sm" aria-label="Modifica Ben/Dan">${icon('edit', { size: 14 })}</button>
-        </td>
-      </tr>
+      <div class="card" style="padding: var(--space-12) var(--space-16); margin-bottom: var(--space-12);">
+        <div style="display:flex; justify-content: space-between; align-items: baseline; gap: var(--space-8); margin-bottom: var(--space-8);">
+          <div style="min-width:0; flex:1;">
+            <p style="margin:0; font-weight:600; font-size: var(--text-base);">${escapeHtml(u.full_name)}</p>
+            ${mismatch ? `<p class="text-xs" style="margin:2px 0 0 0; color: var(--warning, #c9942a);">⚠ Ben+Dan (€ ${fmt(splitTot)}) ≠ Totale</p>` : ''}
+          </div>
+          <button type="button" data-split="${u.id}" class="btn btn--ghost btn--sm" aria-label="Modifica Ben/Dan">${icon('edit', { size: 16 })}</button>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-8) var(--space-12); font-size: var(--text-sm);">
+          ${cell('Totale',   `€ ${fmt(totale)}`)}
+          ${cell('Ben',      `€ ${fmt(ben)}`,  '#2980b9')}
+          ${cell('Dan',      `€ ${fmt(dan)}`,  'var(--terracotta)')}
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-8) var(--space-12); margin-top: var(--space-8); padding-top: var(--space-8); border-top: 1px solid var(--border-soft);">
+          ${cell('Acconti bonifico', `− € ${fmt(accBonifico)}`, 'var(--ink-muted)')}
+          ${cell('Acconti contanti', `− € ${fmt(accCash)}`,     'var(--ink-muted)')}
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-8) var(--space-12); margin-top: var(--space-8); padding-top: var(--space-8); border-top: 2px solid var(--ink);">
+          ${cell('Restante',     `€ ${fmt(restTot)}`,  null, true)}
+          ${cell('Rest. Ben',    `€ ${fmt(restBen)}`,  '#2980b9', true)}
+          ${cell('Rest. Dan',    `€ ${fmt(restDan)}`,  'var(--terracotta)', true)}
+        </div>
+      </div>
+    `;
+  }
+
+  function cell(label, value, color, bold) {
+    const colorStyle = color ? `color: ${color};` : '';
+    const weight = bold ? 'font-weight: 600;' : '';
+    return `
+      <div style="min-width:0;">
+        <p class="muted text-xs" style="margin:0; text-transform: uppercase; letter-spacing: 0.02em;">${label}</p>
+        <p style="margin: 2px 0 0 0; font-family: var(--font-display); ${colorStyle} ${weight}">${value}</p>
+      </div>
     `;
   }
 
