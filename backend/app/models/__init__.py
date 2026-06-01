@@ -57,6 +57,7 @@ from app.models.push import PushSubscription
 from app.models.users import User, UserRole
 from app.models.work_shifts import WorkShift
 from app.models.payroll_split import PayrollSplit
+from app.models.day_leave import DayLeave, DayLeaveKind
 
 __all__ = [
     # base
@@ -118,4 +119,7 @@ __all__ = [
     "MovementKind",
     # payroll splits (Ben/Dan)
     "PayrollSplit",
+    # day leaves
+    "DayLeave",
+    "DayLeaveKind",
 ]

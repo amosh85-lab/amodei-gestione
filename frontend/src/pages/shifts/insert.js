@@ -4,7 +4,7 @@
 // Una persona può avere 2 turni nello stesso giorno (pranzo + cena).
 // Niente divisione cucina/sala (un solo reparto).
 
-import { apiGet, apiPost, ApiError } from '../../js/api.js';
+import { apiGet, apiPost, apiPut, apiDelete, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
@@ -43,7 +43,12 @@ export async function mountShiftsInsert(container, _params, query) {
   async function load() {
     container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">${skeletonList(4)}</div>`;
     try {
-      const day = await apiGet(`/work-shifts/by-date/${state.date}`);
+      const [day, leaves] = await Promise.all([
+        apiGet(`/work-shifts/by-date/${state.date}`),
+        apiGet(`/day-leaves?from_date=${state.date}&to_date=${state.date}`).catch(() => []),
+      ]);
+      state.leaves = {};
+      for (const l of leaves) state.leaves[l.user_id] = l;
       const allUsers = [...day.shifts.map((s) => s.user), ...day.users_without_shift];
       const seen = new Set();
       const uniqueUsers = allUsers.filter((u) => {
@@ -139,8 +144,10 @@ export async function mountShiftsInsert(container, _params, query) {
 
   function renderRow(r, idx) {
     const isExisting = r.existingShiftId !== null;
+    const leave = state.leaves?.[r.user.id] || null;
+    const isLeave = leave !== null;
     return `
-      <div class="card" style="padding: var(--space-12); ${r.hours > 0 ? '' : 'opacity: 0.7;'}">
+      <div class="card" style="padding: var(--space-12); ${isLeave ? 'opacity: 0.85; background: rgba(106,76,147,0.04);' : (r.hours > 0 ? '' : 'opacity: 0.7;')}">
         <div style="display: flex; align-items: center; gap: var(--space-12);">
           <span style="width: 40px; height: 40px; border-radius: 50%; background: var(--terracotta); color: var(--off-white); display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 600; flex-shrink: 0;">${initials(r.user.full_name)}</span>
           <div style="flex: 1; min-width: 0;">
@@ -148,6 +155,13 @@ export async function mountShiftsInsert(container, _params, query) {
             <p class="muted text-xs" style="margin: 2px 0 0 0;">${escapeHtml(r.user.role)}${isExisting ? ' · turno esistente' : ''}</p>
           </div>
         </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); margin-top: var(--space-12);">
+          ${leaveBtn(r.user.id, '',         'Lavoro',   leave === null)}
+          ${leaveBtn(r.user.id, 'ferie',    'Ferie',    leave?.kind === 'ferie')}
+          ${leaveBtn(r.user.id, 'riposo',   'Riposo',   leave?.kind === 'riposo')}
+          ${leaveBtn(r.user.id, 'malattia', 'Malattia', leave?.kind === 'malattia')}
+        </div>
+        ${isLeave ? '' : `
         <!-- Side-by-side: Inizio compatto (95px) + Ore fluido.
              Il container "wrap" di Inizio ha overflow hidden + border, e
              l'input type=time dentro è "nudo" (no border, no class .input).
@@ -173,8 +187,26 @@ export async function mountShiftsInsert(container, _params, query) {
         <div style="margin-top: var(--space-8);">
           <input type="text" data-notes-idx="${idx}" class="input" value="${escapeAttr(r.notes)}" placeholder="Note (opzionale)" maxlength="200">
         </div>
+        `}
       </div>
     `;
+  }
+
+  function leaveBtn(userId, kind, label, active) {
+    const colors = {
+      '':         { bg: 'var(--terracotta)',    fg: 'var(--off-white)' },
+      'ferie':    { bg: '#2980b9',              fg: 'var(--off-white)' },
+      'riposo':   { bg: '#6a4c93',              fg: 'var(--off-white)' },
+      'malattia': { bg: '#c0392b',              fg: 'var(--off-white)' },
+    };
+    const c = colors[kind];
+    return `<button type="button" data-leave-kind="${kind}" data-leave-user="${userId}"
+      style="padding: 6px var(--space-4); border-radius: var(--radius-md);
+             border: 1px solid ${active ? c.bg : 'var(--border-soft)'};
+             background: ${active ? c.bg : 'var(--off-white)'};
+             color: ${active ? c.fg : 'var(--ink)'};
+             font-size: 12px; cursor: pointer;
+             font-weight: ${active ? '600' : '500'};">${label}</button>`;
   }
 
   function serviceLabel() {
@@ -233,7 +265,30 @@ export async function mountShiftsInsert(container, _params, query) {
         state.rows[idx].notes = e.target.value;
       });
     });
+    container.querySelectorAll('[data-leave-kind]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const userId = Number(b.dataset.leaveUser);
+        const kind = b.dataset.leaveKind || null;
+        updateLeave(userId, kind);
+      });
+    });
     container.querySelector('#save-btn')?.addEventListener('click', save);
+  }
+
+  async function updateLeave(userId, kind) {
+    try {
+      const existing = state.leaves?.[userId];
+      if (!kind) {
+        if (existing) await apiDelete(`/day-leaves/${existing.id}`);
+      } else {
+        await apiPut('/day-leaves', { user_id: userId, date: state.date, kind });
+      }
+      showToast(kind ? `Segnato come ${kind}` : 'Stato rimosso', 'success');
+      await load();
+    } catch (err) {
+      const msg = err instanceof ApiError && err.message ? err.message : 'Errore';
+      showToast(msg, 'danger', 5000);
+    }
   }
 
   function qs() {

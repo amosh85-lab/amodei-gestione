@@ -44,12 +44,14 @@ export async function mountShiftsWeekly(container, _params, query) {
       const sunday = new Date(monday);
       sunday.setDate(sunday.getDate() + 6);
       const sundayIso = sunday.toISOString().slice(0, 10);
-      const [summaries, shifts] = await Promise.all([
+      const [summaries, shifts, leaves] = await Promise.all([
         apiGet(`/work-shifts/weekly-summary?week_start=${state.weekStart}`),
         apiGet(`/work-shifts?from_date=${state.weekStart}&to_date=${sundayIso}`),
+        apiGet(`/day-leaves?from_date=${state.weekStart}&to_date=${sundayIso}`).catch(() => []),
       ]);
       state.summaries = summaries;
       state.allShifts = shifts;
+      state.allLeaves = leaves;
       render();
     } catch (err) {
       state.error = err.message || 'Errore';
@@ -120,8 +122,11 @@ export async function mountShiftsWeekly(container, _params, query) {
           ${dayIsos.map((iso) => {
             const isToday = iso === today;
             const cellShifts = shiftsAt(svc.key, iso);
+            // Day-leaves: solo nella riga "pranzo" per evitare doppia visualizzazione
+            const cellLeaves = svc.key === 'lunch' ? leavesAt(iso) : [];
             return `<div style="padding: var(--space-4); min-height: 56px; border-top: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); background: ${isToday ? 'rgba(181,57,31,0.04)' : 'transparent'};">
-              ${cellShifts.length === 0
+              ${cellLeaves.map(renderLeaveChip).join('')}
+              ${cellShifts.length === 0 && cellLeaves.length === 0
                 ? '<span class="muted text-xs" style="opacity: 0.4;">−</span>'
                 : cellShifts.map(renderShiftChip).join('')}
             </div>`;
@@ -144,6 +149,26 @@ export async function mountShiftsWeekly(container, _params, query) {
     return state.allShifts
       .filter((sh) => sh.date === iso && sh.service === serviceKey)
       .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+  }
+
+  function leavesAt(iso) {
+    return (state.allLeaves || [])
+      .filter((l) => l.date === iso)
+      .sort((a, b) => (a.user?.full_name || '').localeCompare(b.user?.full_name || ''));
+  }
+
+  function renderLeaveChip(l) {
+    const palette = {
+      ferie:    { bg: 'rgba(41,128,185,0.16)',  fg: '#2980b9', label: 'Ferie' },
+      riposo:   { bg: 'rgba(106,76,147,0.16)',  fg: '#6a4c93', label: 'Riposo' },
+      malattia: { bg: 'rgba(192,57,43,0.16)',   fg: '#c0392b', label: 'Malattia' },
+    };
+    const p = palette[l.kind] || palette.ferie;
+    const name = shortName(l.user?.full_name || '');
+    return `<div style="font-size: 11px; padding: 2px 4px; margin-bottom: 2px; background: ${p.bg}; color: ${p.fg}; border-radius: 4px; line-height: 1.2;">
+      <strong style="display:block;">${escapeHtml(name)}</strong>
+      <span style="font-size: 10px;">${p.label}</span>
+    </div>`;
   }
 
   // ---------- Riepilogo ore ----------
