@@ -20,7 +20,12 @@
       "Bash(.venv/bin/pip install *)",
       "Bash(.venv/bin/python *)",
       "Bash(.venv/bin/alembic current *)",
-      "Bash(.venv/bin/alembic heads *)"
+      "Bash(.venv/bin/alembic heads *)",
+      "Bash(git restore *)",
+      "Read(//Users/amoshalfon/Documents/GitHub/bybit-dashboard/**)",
+      "Bash(.venv/bin/alembic upgrade *)",
+      "Bash(git fetch *)",
+      "Bash(git rev-list *)"
     ]
   }
 }
