@@ -54,3 +54,6 @@ backend/backups/
 
 # --- Test-only bootstrap helpers (never linked from the app) ---
 frontend/test-bootstrap.html
+
+# --- Claude Code harness (allowlist per-macchina, non condiviso) ---
+.claude/settings.local.json
