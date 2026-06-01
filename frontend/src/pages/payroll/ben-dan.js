@@ -48,10 +48,6 @@ export async function mountBenDan(container, _params, query) {
     container.innerHTML = `
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 96px;">
         ${renderMonthNav()}
-        <p class="muted text-sm" style="margin: 0 0 var(--space-12) 0;">
-          <strong>Ben</strong> = bonifico. <strong>Dan</strong> = contanti.
-          Imposta tu i target per ciascun dipendente; gli acconti vengono presi automaticamente dal mese.
-        </p>
         ${rows.length === 0
           ? `<p class="muted" style="text-align:center; padding: var(--space-20); background: var(--cream-soft); border-radius: var(--radius-md);">Nessun dipendente attivo.</p>`
           : rows.map(renderCard).join('')}
