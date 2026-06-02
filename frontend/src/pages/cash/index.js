@@ -368,6 +368,11 @@ export async function mountCashPage(container, _params, query) {
       ? '<span style="opacity: 0.6; font-style: italic;">non ancora compilato</span>'
       : `€ ${formatMoney(s.partial_dinner)}`;
 
+    const posSub = `Pranzo € ${formatMoney(s.pos_lunch || 0)} · Cena € ${formatMoney(s.pos_dinner || 0)}`;
+    const cashDinnerValue = s.cash_dinner_above_float != null
+      ? `€ ${formatMoney(s.cash_dinner_above_float)}`
+      : '<span style="opacity: 0.6; font-style: italic;">non ancora compilato</span>';
+
     return `
       ${closedBanner}
 
@@ -376,23 +381,22 @@ export async function mountCashPage(container, _params, query) {
         <p style="margin:0; font-family: var(--font-body); font-size: var(--text-xs); opacity: 0.7; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); color: inherit;">Totale calcolato</p>
         <p style="margin: var(--space-8) 0 0 0; font-family: var(--font-display); font-size: 3.5rem; font-weight: 600; line-height: 1; color: inherit;">${s.computed_total != null ? `€ ${formatMoney(s.computed_total)}` : '€ —'}</p>
 
-        <!-- Read-only breakdown by service -->
+        <!-- POS + Cash fine serata -->
         <div style="margin-top: var(--space-20); padding-top: var(--space-20); border-top: 1px solid rgba(255,255,255,0.15);">
-          ${darkRow('Parziale pranzo', lunchHint, 'inserito nel tab Pranzo')}
-          ${darkRow('Parziale cena', dinnerHint, 'inserito nel tab Cena')}
-          ${Number(s.advances_total || 0) > 0
-            ? darkRow('di cui acconti dipendenti', `€ ${formatMoney(s.advances_total)}`, 'da detrarre da busta paga')
-            : ''}
-          ${s.cash_incassato != null ? `
-            <div style="display: flex; justify-content: space-between; padding: var(--space-8) 0; opacity: 0.85; color: inherit;">
-              <span style="font-style: italic; color: inherit;">→ Cash incassato (totale)</span>
-              <span style="font-style: italic; font-family: var(--font-display); color: inherit;">€ ${formatMoney(s.cash_incassato)}</span>
-            </div>` : ''}
-          ${darkRow('Fondo cassa', `€ ${formatMoney(s.cash_float)}`, 'snapshot informativo, non entra nei calcoli')}
+          ${darkRow('Totale POS', `€ ${formatMoney(s.pos_total || 0)}`, posSub)}
+          ${darkRow('Cash fine serata', cashDinnerValue, 'oltre il fondo cassa')}
         </div>
 
+        <!-- Spese di giornata + dettaglio -->
         ${renderDarkExpensesDetail(state.expenses)}
 
+        <!-- Parziali per servizio -->
+        <div style="margin-top: var(--space-16); padding-top: var(--space-16); border-top: 1px solid rgba(255,255,255,0.15);">
+          ${darkRow('Parziale pranzo', lunchHint)}
+          ${darkRow('Parziale cena', dinnerHint)}
+        </div>
+
+        <!-- Riconciliazione fiscale -->
         <div style="margin-top: var(--space-16); padding-top: var(--space-16); border-top: 1px solid rgba(255,255,255,0.15);">
           ${darkCheckRow('Totale fiscale', s.fiscal_total, s.delta_fiscal, 'fiscal_total', 'fiscal')}
           ${darkCheckRow('Totale Ipratico', s.ipratico_total, s.delta_ipratico, 'ipratico_total', 'ipratico')}
@@ -422,7 +426,7 @@ export async function mountCashPage(container, _params, query) {
     return `
       <div style="margin-top: var(--space-16); padding-top: var(--space-16); border-top: 1px solid rgba(255,255,255,0.15);">
         <div style="display: flex; justify-content: space-between; align-items: baseline;">
-          <span style="font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); opacity: 0.75;">Dettaglio spese (${expenses.length})</span>
+          <span style="font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); opacity: 0.75;">Totale spese di giornata (${expenses.length})</span>
           <span style="font-family: var(--font-display); color: inherit;">− € ${formatMoney(total)}</span>
         </div>
         ${groupBlock('Pranzo', lunchList, lunchTot)}
