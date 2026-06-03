@@ -50,10 +50,36 @@ export async function mountBenDan(container, _params, query) {
         ${renderMonthNav()}
         ${rows.length === 0
           ? `<p class="muted" style="text-align:center; padding: var(--space-20); background: var(--cream-soft); border-radius: var(--radius-md);">Nessun dipendente attivo.</p>`
-          : rows.map(renderCard).join('')}
+          : rows.map(renderCard).join('') + renderTotals(rows)}
       </section>
     `;
     wire();
+  }
+
+  function renderTotals(rows) {
+    let totBen = 0, totDan = 0, totRestBen = 0, totRestDan = 0;
+    for (const r of rows) {
+      const split = state.splits?.[r.user.id];
+      const ben = split ? Number(split.ben_amount) : 0;
+      const dan = split ? Number(split.dan_amount) : 0;
+      totBen += ben;
+      totDan += dan;
+      totRestBen += ben - Number(r.advances_bonifico || 0);
+      totRestDan += dan - Number(r.advances_cash || 0);
+    }
+    return `
+      <div class="card" style="padding: var(--space-12) var(--space-16); margin-top: var(--space-8); background: var(--cream-soft);">
+        <p style="margin:0 0 var(--space-8) 0; font-weight:600; font-size: var(--text-base);">Totali da pagare</p>
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-8) var(--space-12); font-size: var(--text-sm);">
+          ${cell('Totale Ben', `€ ${fmt(totBen)}`, '#2980b9', true)}
+          ${cell('Totale Dan', `€ ${fmt(totDan)}`, 'var(--terracotta)', true)}
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-8) var(--space-12); margin-top: var(--space-8); padding-top: var(--space-8); border-top: 2px solid var(--ink);">
+          ${cell('Rest. Ben (bonifico)', `€ ${fmt(totRestBen)}`, '#2980b9', true)}
+          ${cell('Rest. Dan (contanti)', `€ ${fmt(totRestDan)}`, 'var(--terracotta)', true)}
+        </div>
+      </div>
+    `;
   }
 
   function renderMonthNav() {
