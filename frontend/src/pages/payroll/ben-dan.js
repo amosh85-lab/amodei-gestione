@@ -186,6 +186,20 @@ export async function mountBenDan(container, _params, query) {
         },
       },
     ]);
+
+    // Auto-compila Dan = Totale − Ben non appena si digita Ben.
+    const benInput = document.getElementById('split-ben');
+    const danInput = document.getElementById('split-dan');
+    if (benInput && danInput) {
+      benInput.addEventListener('input', () => {
+        const benRaw = benInput.value.trim();
+        if (benRaw === '') { danInput.value = ''; return; }
+        const ben = Number(benRaw);
+        if (Number.isNaN(ben)) return;
+        const dan = Math.max(0, totale - ben);
+        danInput.value = dan.toFixed(2);
+      });
+    }
   }
 }
 
