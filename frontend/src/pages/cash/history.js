@@ -11,6 +11,7 @@ import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
 import { showToast, showModal, skeletonList } from '../../js/components.js';
+import { todayLocalIso } from '../../js/dates.js';
 
 const WARN_DELTA = 5;  // |delta| in € → soglia ambra
 
@@ -116,7 +117,7 @@ export async function mountCashHistory(container, _params, query) {
   function renderCalendar(year, month, byDay) {
     const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // 0 = lun
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = todayLocalIso();
 
     const headers = ['L', 'M', 'M', 'G', 'V', 'S', 'D']
       .map((h) => `<div style="text-align:center; font-size: var(--text-xs); color: var(--ink-muted); padding: var(--space-4) 0;">${h}</div>`)

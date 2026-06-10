@@ -6,6 +6,7 @@ import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
 import { showModal, showToast, confirmDialog, skeletonList } from '../../js/components.js';
+import { todayLocalIso } from '../../js/dates.js';
 
 export async function mountCashVault(container, _params, _query) {
   setHeader({
@@ -152,7 +153,7 @@ export async function mountCashVault(container, _params, _query) {
       : 'es. Pagamento fornitore X';
     const endpoint = isIn ? '/cash-vault/movements/in' : '/cash-vault/movements';
     const successMsg = isIn ? 'Entrata registrata' : 'Uscita registrata';
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocalIso();
     const body = `
       <form id="mv-form" class="stack-12" onsubmit="return false">
         <div class="form-row">
@@ -196,7 +197,7 @@ export async function mountCashVault(container, _params, _query) {
 
   function openBaselineModal() {
     const b = state.balance || {};
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = todayLocalIso();
     const body = `
       <p class="muted text-sm" style="margin: 0 0 var(--space-12) 0;">Il saldo iniziale è il contante che hai in cassaforte <strong>la mattina della data scelta</strong>. Dalla chiusura cassa di quel giorno in poi, il saldo cresce automaticamente con il cash di fine serata di ogni giornata già registrata in /cassa (anche i giorni passati vengono recuperati). Cala con le uscite manuali. Sovrascrive l'eventuale baseline precedente.</p>
       <form id="bl-form" class="stack-12" onsubmit="return false">

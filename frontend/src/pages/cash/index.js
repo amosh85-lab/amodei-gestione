@@ -10,6 +10,7 @@ import { navigate } from '../../js/router.js';
 import { userHasRole } from '../../js/auth.js';
 import { icon } from '../../js/icons.js';
 import { showToast, showModal, confirmDialog, skeletonList } from '../../js/components.js';
+import { localIso, todayLocalIso } from '../../js/dates.js';
 import { openClosePosModal, openNumpad } from './modal-close-pos.js';
 import { openAddExpenseModal } from './modal-add-expense.js';
 import { openAddAdvanceModal } from './modal-add-advance.js';
@@ -652,7 +653,7 @@ export async function mountCashPage(container, _params, query) {
 const BUSINESS_DAY_THRESHOLD_HOUR = 6;
 
 function realTodayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocalIso();
 }
 
 function businessDayIso() {
@@ -661,7 +662,7 @@ function businessDayIso() {
     // Backshift di un giorno
     const d = new Date(now);
     d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
+    return localIso(d);
   }
   return realTodayIso();
 }
