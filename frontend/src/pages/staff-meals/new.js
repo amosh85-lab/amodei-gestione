@@ -6,6 +6,7 @@ import { navigate } from '../../js/router.js';
 import { getCurrentUser, userHasRole } from '../../js/auth.js';
 import { icon } from '../../js/icons.js';
 import { showToast, confirmDialog } from '../../js/components.js';
+import { todayLocalIso } from '../../js/dates.js';
 import { initials } from './list.js';
 
 const STEPS = [
@@ -47,7 +48,7 @@ export async function mountStaffMealsNew(container) {
 
   const state = {
     step: 1,
-    date: new Date().toISOString().slice(0, 10),
+    date: todayLocalIso(),
     service: 'lunch',
     participant_user_ids: isManagerOrAdmin ? [] : [me.id],
     items: [],   // [{product_id, qty}]

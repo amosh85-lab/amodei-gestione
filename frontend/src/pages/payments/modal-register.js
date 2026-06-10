@@ -4,6 +4,7 @@
 
 import { apiPost, ApiError } from '../../js/api.js';
 import { showModal, showToast } from '../../js/components.js';
+import { todayLocalIso } from '../../js/dates.js';
 
 const METHOD_LABEL = { bank_transfer: '🏦 Bonifico', check: '📝 Assegno', cash: '💵 Contanti' };
 
@@ -16,7 +17,7 @@ const METHOD_LABEL = { bank_transfer: '🏦 Bonifico', check: '📝 Assegno', ca
  */
 export function openRegisterPaymentModal({ preselectedInvoiceIds, supplier, invoices, onSaved }) {
   const total = invoices.reduce((s, i) => s + Number(i.amount_total), 0);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalIso();
   let method = 'bank_transfer';
 
   const body = `

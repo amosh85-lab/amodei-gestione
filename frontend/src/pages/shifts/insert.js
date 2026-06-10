@@ -9,6 +9,7 @@ import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
 import { showToast, skeletonList, parseNumberInput } from '../../js/components.js';
+import { todayLocalIso } from '../../js/dates.js';
 
 const SERVICES = [
   { key: 'lunch',  label: 'Pranzo', defaultStart: '11:00' },
@@ -27,7 +28,7 @@ export async function mountShiftsInsert(container, _params, query) {
   });
 
   const state = {
-    date: query.date || new Date().toISOString().slice(0, 10),
+    date: query.date || todayLocalIso(),
     service: query.service === 'dinner' ? 'dinner' : 'lunch',
     // rows: per ogni dipendente con/senza turno per (date, service corrente):
     //   { user, start_time, hours, notes, existingShiftId }

@@ -6,6 +6,7 @@ import { navigate } from '../../js/router.js';
 import { userHasRole, getCurrentUser } from '../../js/auth.js';
 import { icon } from '../../js/icons.js';
 import { showToast, skeletonList } from '../../js/components.js';
+import { localIso } from '../../js/dates.js';
 
 export function mountStaffMealsList(container, _params, query) {
   const isManagerOrAdmin = userHasRole('admin', 'manager');
@@ -69,17 +70,17 @@ export function mountStaffMealsList(container, _params, query) {
     const today = new Date();
     let from, to;
     if (state.range === 'today') {
-      from = to = today.toISOString().slice(0, 10);
+      from = to = localIso(today);
     } else if (state.range === 'week') {
       const monday = new Date(today);
       const dow = (today.getDay() + 6) % 7; // mon=0
       monday.setDate(today.getDate() - dow);
-      from = monday.toISOString().slice(0, 10);
-      to = today.toISOString().slice(0, 10);
+      from = localIso(monday);
+      to = localIso(today);
     } else {
       const first = new Date(today.getFullYear(), today.getMonth(), 1);
-      from = first.toISOString().slice(0, 10);
-      to = today.toISOString().slice(0, 10);
+      from = localIso(first);
+      to = localIso(today);
     }
     const mealsEl = container.querySelector('#meals');
     try {

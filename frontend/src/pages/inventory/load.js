@@ -5,6 +5,7 @@ import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
 import { showToast, showModal, skeletonList, parseNumberInput } from '../../js/components.js';
+import { todayLocalIso } from '../../js/dates.js';
 
 const STEPS = [
   { id: 1, title: 'Prodotto' },
@@ -541,7 +542,7 @@ export async function mountInventoryLoad(container, _params, query) {
       fd.append('discount_pct', String(state.discount_pct));
     }
     if (state.supplier) fd.append('supplier_id', String(state.supplier.id));
-    fd.append('load_date', new Date().toISOString().slice(0, 10));
+    fd.append('load_date', todayLocalIso());
     if (state.expiry_date) fd.append('expiry_date', state.expiry_date);
     if (state.notes) fd.append('notes', state.notes);
     if (state.photo_file) fd.append('receipt_photo', state.photo_file, state.photo_file.name);

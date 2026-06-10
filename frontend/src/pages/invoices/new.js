@@ -8,6 +8,7 @@ import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
 import { showToast, skeletonList, parseNumberInput } from '../../js/components.js';
+import { todayLocalIso } from '../../js/dates.js';
 
 const CAT_LABEL = { food: '🍖 Food', beverage: '🍷 Beverage', consumo: '🧴 Consumo' };
 
@@ -36,7 +37,7 @@ export async function mountInvoiceNew(container, _params, _query) {
   let photoFile = null;
   let photoPreview = null;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalIso();
   container.innerHTML = `
     <section class="container" style="padding-block: var(--space-20); padding-bottom: 96px;">
       <form id="inv-form" class="stack-12" novalidate>

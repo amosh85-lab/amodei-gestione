@@ -5,6 +5,7 @@ import { setHeader } from '../js/app-shell.js';
 import { navigate } from '../js/router.js';
 import { icon } from '../js/icons.js';
 import { confirmDialog } from '../js/components.js';
+import { localIso } from '../js/dates.js';
 import { apiGet } from '../js/api.js';
 import { isOnboardingSkipped } from './onboarding/welcome.js';
 
@@ -161,10 +162,10 @@ function mountAdminHome(container, user) {
 
 async function loadIncassoCard() {
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = localIso(today);
   const fromDate = new Date(today);
   fromDate.setDate(fromDate.getDate() - 14);
-  const fromStr = fromDate.toISOString().slice(0, 10);
+  const fromStr = localIso(fromDate);
 
   let summaries;
   try {
@@ -308,7 +309,7 @@ function trendRow(label, current, previous, vsLabel) {
 }
 
 function isoOf(d) {
-  return d.toISOString().slice(0, 10);
+  return localIso(d);
 }
 
 function addDays(d, n) {
@@ -394,7 +395,7 @@ function computeWeekAvg(byDate, today) {
   const vals = [];
   const d = new Date(lastMonday);
   while (d <= lastSunday) {
-    const k = d.toISOString().slice(0, 10);
+    const k = localIso(d);
     const s = byDate.get(k);
     const t = getTotal(s);
     if (t != null) vals.push(t);

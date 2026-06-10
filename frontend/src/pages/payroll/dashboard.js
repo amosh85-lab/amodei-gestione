@@ -9,6 +9,7 @@ import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
 import { showModal, showToast, skeletonList, parseNumberInput } from '../../js/components.js';
+import { todayLocalIso } from '../../js/dates.js';
 
 export async function mountPayrollDashboard(container, _params, query) {
   setHeader({
@@ -262,7 +263,7 @@ export async function mountPayrollDashboard(container, _params, query) {
     const r = state.data.by_user.find((x) => x.user.id === userId);
     if (!r) return;
     const refMonth = `${state.year}-${String(state.month).padStart(2, '0')}`;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocalIso();
     const body = `
       <form id="adv-form" class="stack-12">
         <p class="muted text-sm" style="margin:0;">Acconto per <strong>${escapeHtml(r.user.full_name)}</strong>, riferito allo stipendio di <strong>${escapeHtml(state.data.month_label)}</strong>.</p>

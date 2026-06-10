@@ -12,6 +12,7 @@ import { setHeader } from '../../js/app-shell.js';
 import { userHasRole } from '../../js/auth.js';
 import { icon } from '../../js/icons.js';
 import { skeletonList } from '../../js/components.js';
+import { localIso, todayLocalIso } from '../../js/dates.js';
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 const SERVICES = [
@@ -108,7 +109,7 @@ export async function mountShiftsWeekly(container, _params, query) {
       dayIsos.push(d.toISOString().slice(0, 10));
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocalIso();
     return `
       <div style="margin-bottom: var(--space-12); background: var(--off-white); border: 1px solid var(--border-soft); border-radius: var(--radius-md); overflow: hidden;">
         <p class="muted text-xs uppercase" style="margin: 0; padding: var(--space-8) var(--space-12); letter-spacing: var(--letter-spacing-wide); background: var(--off-white); border-bottom: 1px solid var(--border-soft);">
@@ -209,7 +210,7 @@ function mondayIso(d) {
   const day = (d.getDay() + 6) % 7;
   const m = new Date(d);
   m.setDate(m.getDate() - day);
-  return m.toISOString().slice(0, 10);
+  return localIso(m);
 }
 function formatHours(v) {
   const n = Number(v);

@@ -5,6 +5,7 @@ import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
 import { showModal, showToast, skeletonList } from '../../js/components.js';
+import { localIso } from '../../js/dates.js';
 
 export async function mountPayrollUserDetail(container, params, query) {
   const userId = Number(params.user_id);
@@ -16,7 +17,7 @@ export async function mountPayrollUserDetail(container, params, query) {
   container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">${skeletonList(4)}</div>`;
 
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
-  const monthEnd = new Date(year, month, 0).toISOString().slice(0, 10);
+  const monthEnd = localIso(new Date(year, month, 0));
   const payrollStr = `${year}-${String(month).padStart(2, '0')}`;
 
   let payroll, shifts, advances;
