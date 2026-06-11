@@ -31,7 +31,9 @@ export async function mountShiftsInsert(container, _params, query) {
     date: query.date || todayLocalIso(),
     service: query.service === 'dinner' ? 'dinner' : 'lunch',
     // rows: per ogni dipendente con/senza turno per (date, service corrente):
-    //   { user, start_time, hours, notes, existingShiftId }
+    //   { user, start_time, end_time, notes, existingShiftId }
+    // Il backend salva (start_time, hours): end_time esiste solo qui in UI
+    // e le ore si derivano da fine − inizio (oltre mezzanotte: +24h).
     rows: [],
     // Mancia POS del (date, service) corrente: tip = riga esistente sul
     // backend (o null), tipAmount = valore corrente dell'input.
@@ -73,7 +75,8 @@ export async function mountShiftsInsert(container, _params, query) {
         return {
           user,
           start_time: existing ? existing.start_time.slice(0, 5) : defaultStart,
-          hours: existing ? Number(existing.hours) : 0,
+          // Turni già salvati: fine = inizio + ore registrate.
+          end_time: existing ? addHoursToTime(existing.start_time.slice(0, 5), existing.hours) : '',
           notes: existing?.notes || '',
           existingShiftId: existing?.id || null,
         };
@@ -87,8 +90,8 @@ export async function mountShiftsInsert(container, _params, query) {
   }
 
   function render() {
-    const totalHours = state.rows.reduce((s, r) => s + Number(r.hours), 0);
-    const activeCount = state.rows.filter((r) => Number(r.hours) > 0).length;
+    const totalHours = state.rows.reduce((s, r) => s + rowHours(r), 0);
+    const activeCount = state.rows.filter((r) => rowHours(r) > 0).length;
     container.innerHTML = `
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 110px;">
         ${renderFilters()}
@@ -104,7 +107,7 @@ export async function mountShiftsInsert(container, _params, query) {
         <div style="position: fixed; left: 0; right: 0; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 9; padding: var(--space-12) var(--space-20); background: var(--off-white); border-top: 1px solid var(--border-soft); box-shadow: 0 -2px 12px rgba(120,30,20,0.06);">
           <div class="container" style="padding: 0;">
             <button type="button" id="save-btn" class="btn btn--primary btn--lg full-width">
-              ${icon('check', { size: 20 })}<span>Salva turni ${escapeHtml(serviceLabel())} (${activeCount}/${state.rows.length})</span>
+              ${icon('check', { size: 20 })}<span id="save-btn-label">Salva turni ${escapeHtml(serviceLabel())} (${activeCount}/${state.rows.length})</span>
             </button>
           </div>
         </div>` : ''}
@@ -144,9 +147,9 @@ export async function mountShiftsInsert(container, _params, query) {
         <div style="display: flex; justify-content: space-between; align-items: baseline;">
           <div>
             <p class="muted text-xs" style="margin:0; text-transform: uppercase;">${escapeHtml(serviceLabel())}</p>
-            <p style="margin: var(--space-4) 0 0 0; font-family: var(--font-display); font-size: 1.6rem; font-weight: 600;">${formatHours(total)} ore</p>
+            <p id="sum-hours" style="margin: var(--space-4) 0 0 0; font-family: var(--font-display); font-size: 1.6rem; font-weight: 600;">${formatHours(total)} ore</p>
           </div>
-          <p class="muted text-sm">${count}/${state.rows.length} con turno</p>
+          <p id="sum-count" class="muted text-sm">${count}/${state.rows.length} con turno</p>
         </div>
       </div>`;
   }
@@ -176,7 +179,26 @@ export async function mountShiftsInsert(container, _params, query) {
 
   function updateTipHint() {
     const el = container.querySelector('#tip-share');
-    if (el) el.textContent = tipShareHint(state.rows.filter((r) => Number(r.hours) > 0).length);
+    if (el) el.textContent = tipShareHint(state.rows.filter((r) => rowHours(r) > 0).length);
+  }
+
+  // Aggiorna i derivati (totale riga, riepilogo, hint mancia, label salva)
+  // senza ri-renderizzare: un render completo farebbe perdere il focus
+  // all'input che si sta usando.
+  function refreshDerived(idx) {
+    if (idx != null) {
+      const span = container.querySelector(`[data-total-idx="${idx}"]`);
+      if (span) span.textContent = rowTotalLabel(state.rows[idx]);
+    }
+    const total = state.rows.reduce((s, r) => s + rowHours(r), 0);
+    const active = state.rows.filter((r) => rowHours(r) > 0).length;
+    const sumHours = container.querySelector('#sum-hours');
+    if (sumHours) sumHours.textContent = `${formatHours(total)} ore`;
+    const sumCount = container.querySelector('#sum-count');
+    if (sumCount) sumCount.textContent = `${active}/${state.rows.length} con turno`;
+    const saveLabel = container.querySelector('#save-btn-label');
+    if (saveLabel) saveLabel.textContent = `Salva turni ${serviceLabel()} (${active}/${state.rows.length})`;
+    updateTipHint();
   }
 
   function renderRow(r, idx) {
@@ -184,7 +206,7 @@ export async function mountShiftsInsert(container, _params, query) {
     const leave = state.leaves?.[r.user.id] || null;
     const isLeave = leave !== null;
     return `
-      <div class="card" style="padding: var(--space-12); ${isLeave ? 'opacity: 0.85; background: rgba(106,76,147,0.04);' : (r.hours > 0 ? '' : 'opacity: 0.7;')}">
+      <div class="card" style="padding: var(--space-12); ${isLeave ? 'opacity: 0.85; background: rgba(106,76,147,0.04);' : (rowHours(r) > 0 ? '' : 'opacity: 0.7;')}">
         <div style="display: flex; align-items: center; gap: var(--space-12);">
           <span style="width: 40px; height: 40px; border-radius: 50%; background: var(--terracotta); color: var(--off-white); display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 600; flex-shrink: 0;">${initials(r.user.full_name)}</span>
           <div style="flex: 1; min-width: 0;">
@@ -199,25 +221,30 @@ export async function mountShiftsInsert(container, _params, query) {
           ${leaveBtn(r.user.id, 'malattia', 'Malattia', leave?.kind === 'malattia')}
         </div>
         ${isLeave ? '' : `
-        <!-- Side-by-side: Inizio compatto (95px) + Ore fluido.
-             Il container "wrap" di Inizio ha overflow hidden + border, e
-             l'input type=time dentro è "nudo" (no border, no class .input).
-             Così anche se iOS vuole stretchare il time picker, viene clippato
+        <!-- Side-by-side: Inizio + Fine compatti (95px) + Totale derivato.
+             I container "wrap" hanno overflow hidden + border, e l'input
+             type=time dentro è "nudo" (no border, no class .input). Così
+             anche se iOS vuole stretchare il time picker, viene clippato
              alla larghezza del wrapper e visivamente resta a 95px. -->
         <div style="display: flex; gap: var(--space-8); margin-top: var(--space-12); align-items: flex-end;">
           <div style="flex: 0 0 95px;">
             <label class="muted text-xs" style="display:block; text-align: center;">Inizio</label>
             <div style="width: 95px; height: 44px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--off-white); overflow: hidden; display: flex; align-items: center;">
-              <input type="time" data-time-idx="${idx}" value="${escapeAttr(r.start_time)}"
+              <input type="time" data-time-idx="${idx}" step="900" value="${escapeAttr(r.start_time)}"
+                     style="width: 100%; min-width: 0; height: 100%; border: none; outline: none; background: transparent; padding: 0 8px; font-family: var(--font-body); font-size: var(--text-base); color: var(--ink); box-sizing: border-box; -webkit-appearance: none; appearance: none;">
+            </div>
+          </div>
+          <div style="flex: 0 0 95px;">
+            <label class="muted text-xs" style="display:block; text-align: center;">Fine</label>
+            <div style="width: 95px; height: 44px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--off-white); overflow: hidden; display: flex; align-items: center;">
+              <input type="time" data-end-idx="${idx}" step="900" value="${escapeAttr(r.end_time)}"
                      style="width: 100%; min-width: 0; height: 100%; border: none; outline: none; background: transparent; padding: 0 8px; font-family: var(--font-body); font-size: var(--text-base); color: var(--ink); box-sizing: border-box; -webkit-appearance: none; appearance: none;">
             </div>
           </div>
           <div style="flex: 1 1 auto; min-width: 0;">
-            <label class="muted text-xs" style="display:block; text-align: center;">Ore</label>
-            <div style="display: flex; align-items: center; gap: var(--space-4);">
-              <button type="button" data-step-idx="${idx}" data-delta="-0.5" class="btn btn--secondary" style="flex: 0 0 36px; width: 36px; height: 44px; min-height: 44px; font-size: 1.2rem; padding: 0;">−</button>
-              <input type="number" data-hours-idx="${idx}" class="input" value="${formatHours(r.hours)}" min="0" max="12" step="0.25" style="flex: 1 1 0; min-width: 0; width: 100%; text-align: center; font-family: var(--font-display); font-size: 1.1rem; padding: 0 4px;">
-              <button type="button" data-step-idx="${idx}" data-delta="+0.5" class="btn btn--secondary" style="flex: 0 0 36px; width: 36px; height: 44px; min-height: 44px; font-size: 1.2rem; padding: 0;">+</button>
+            <label class="muted text-xs" style="display:block; text-align: center;">Totale</label>
+            <div style="height: 44px; display: flex; align-items: center; justify-content: center;">
+              <span data-total-idx="${idx}" style="font-family: var(--font-display); font-size: 1.1rem; white-space: nowrap;">${escapeHtml(rowTotalLabel(r))}</span>
             </div>
           </div>
         </div>
@@ -274,23 +301,6 @@ export async function mountShiftsInsert(container, _params, query) {
         load();
       });
     });
-    container.querySelectorAll('[data-step-idx]').forEach((b) => {
-      b.addEventListener('click', () => {
-        const idx = Number(b.dataset.stepIdx);
-        const delta = Number(b.dataset.delta);
-        const r = state.rows[idx];
-        r.hours = Math.max(0, Math.min(12, Number(r.hours) + delta));
-        render();
-      });
-    });
-    container.querySelectorAll('[data-hours-idx]').forEach((inp) => {
-      inp.addEventListener('input', (e) => {
-        const idx = Number(e.target.dataset.hoursIdx);
-        const v = parseNumberInput(e.target.value);
-        state.rows[idx].hours = Number.isFinite(v) ? Math.max(0, Math.min(12, v)) : 0;
-        updateTipHint();
-      });
-    });
     container.querySelector('#tip-input')?.addEventListener('input', (e) => {
       state.tipAmount = e.target.value;
       updateTipHint();
@@ -299,6 +309,14 @@ export async function mountShiftsInsert(container, _params, query) {
       inp.addEventListener('input', (e) => {
         const idx = Number(e.target.dataset.timeIdx);
         state.rows[idx].start_time = e.target.value;
+        refreshDerived(idx);
+      });
+    });
+    container.querySelectorAll('[data-end-idx]').forEach((inp) => {
+      inp.addEventListener('input', (e) => {
+        const idx = Number(e.target.dataset.endIdx);
+        state.rows[idx].end_time = e.target.value;
+        refreshDerived(idx);
       });
     });
     container.querySelectorAll('[data-notes-idx]').forEach((inp) => {
@@ -338,36 +356,40 @@ export async function mountShiftsInsert(container, _params, query) {
   }
 
   async function save() {
-    const shifts = state.rows
-      .filter((r) => Number(r.hours) > 0)
-      .map((r) => ({
+    const shifts = [];
+    for (const r of state.rows) {
+      const h = rowHours(r);
+      if (h <= 0) continue;
+      if (!r.start_time || !/^\d{2}:\d{2}/.test(r.start_time)) {
+        showToast(`Orario di inizio non valido per ${r.user.full_name}`, 'warn', 5000);
+        return;
+      }
+      if (h > 12) {
+        showToast(`Turno di ${r.user.full_name} oltre 12 ore (${formatHours(h)}h): controlla inizio e fine`, 'warn', 5000);
+        return;
+      }
+      if ((h * 4) % 1 !== 0) {
+        showToast(`Usa orari a step di 15 minuti (turno di ${r.user.full_name}: ${formatHours(h)}h)`, 'warn', 5000);
+        return;
+      }
+      shifts.push({
         user_id: r.user.id,
         service: state.service,
         start_time: r.start_time,
-        hours: Number(r.hours).toFixed(2),
+        hours: h.toFixed(2),
         notes: r.notes || null,
-      }));
+      });
+    }
     const tipVal = parseNumberInput(state.tipAmount);
     const hasTip = Number.isFinite(tipVal) && tipVal > 0;
     const tipChanged = hasTip
       ? !state.tip || Number(state.tip.amount) !== tipVal
       : !!state.tip;
     if (shifts.length === 0 && hasTip) {
-      showToast('La mancia si divide tra chi è in turno: inserisci prima le ore', 'warn', 5000);
+      showToast('La mancia si divide tra chi è in turno: inserisci prima gli orari', 'warn', 5000);
       return;
     }
     if (shifts.length === 0 && !tipChanged) { showToast('Nessun turno da salvare', 'warn'); return; }
-    for (const sh of shifts) {
-      if (!sh.start_time || !/^\d{2}:\d{2}/.test(sh.start_time)) {
-        showToast('Inserisci un orario di inizio valido per ogni turno', 'warn');
-        return;
-      }
-      const h = Number(sh.hours);
-      if ((h * 4) % 1 !== 0) {
-        showToast(`Ore deve essere multiplo di 0.25. Trovato: ${sh.hours}`, 'warn', 5000);
-        return;
-      }
-    }
     try {
       if (shifts.length > 0) {
         await apiPost('/work-shifts/bulk', { date: state.date, shifts });
@@ -395,6 +417,37 @@ export async function mountShiftsInsert(container, _params, query) {
 }
 
 // ---------- helpers ----------
+
+// Ore tra inizio e fine ("HH:MM"). Fine prima dell'inizio = turno che
+// scavalca mezzanotte (es. 18:00 → 02:00 = 8h). Fine vuota o uguale
+// all'inizio = nessun turno (0).
+function hoursFromRange(start, end) {
+  if (!start || !end) return 0;
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  if ([sh, sm, eh, em].some((n) => !Number.isFinite(n))) return 0;
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60;
+  return mins / 60;
+}
+
+function rowHours(r) {
+  return hoursFromRange(r.start_time, r.end_time);
+}
+
+function rowTotalLabel(r) {
+  const h = rowHours(r);
+  if (h <= 0) return '—';
+  const warn = h > 12 || (h * 4) % 1 !== 0 ? ' ⚠' : '';
+  return `${formatHours(h)} h${warn}`;
+}
+
+// "HH:MM" + ore decimali → "HH:MM" (modulo 24h, per i turni esistenti).
+function addHoursToTime(start, hours) {
+  const [h, m] = String(start).split(':').map(Number);
+  const total = ((h * 60 + m + Math.round(Number(hours) * 60)) % 1440 + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
 
 function formatHours(v) {
   const n = Number(v);
