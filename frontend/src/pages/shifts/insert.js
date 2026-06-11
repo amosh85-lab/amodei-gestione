@@ -33,6 +33,10 @@ export async function mountShiftsInsert(container, _params, query) {
     // rows: per ogni dipendente con/senza turno per (date, service corrente):
     //   { user, start_time, hours, notes, existingShiftId }
     rows: [],
+    // Mancia POS del (date, service) corrente: tip = riga esistente sul
+    // backend (o null), tipAmount = valore corrente dell'input.
+    tip: null,
+    tipAmount: '',
     loading: true,
   };
 
@@ -44,10 +48,13 @@ export async function mountShiftsInsert(container, _params, query) {
   async function load() {
     container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">${skeletonList(4)}</div>`;
     try {
-      const [day, leaves] = await Promise.all([
+      const [day, leaves, tips] = await Promise.all([
         apiGet(`/work-shifts/by-date/${state.date}`),
         apiGet(`/day-leaves?from_date=${state.date}&to_date=${state.date}`).catch(() => []),
+        apiGet(`/shift-tips?from_date=${state.date}&to_date=${state.date}`).catch(() => []),
       ]);
+      state.tip = tips.find((t) => t.service === state.service) || null;
+      state.tipAmount = state.tip ? String(Number(state.tip.amount)) : '';
       state.leaves = {};
       for (const l of leaves) state.leaves[l.user_id] = l;
       const allUsers = [...day.shifts.map((s) => s.user), ...day.users_without_shift];
@@ -86,6 +93,7 @@ export async function mountShiftsInsert(container, _params, query) {
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 110px;">
         ${renderFilters()}
         ${renderSummary(totalHours, activeCount)}
+        ${renderTipCard(activeCount)}
         <div id="rows-list" style="margin-top: var(--space-12); display: grid; gap: var(--space-12);">
           ${state.rows.length === 0
             ? `<p class="muted" style="text-align: center; padding: var(--space-20); background: var(--cream-soft); border-radius: var(--radius-md);">Nessun dipendente attivo. Aggiungili da Impostazioni → Utenti.</p>`
@@ -141,6 +149,34 @@ export async function mountShiftsInsert(container, _params, query) {
           <p class="muted text-sm">${count}/${state.rows.length} con turno</p>
         </div>
       </div>`;
+  }
+
+  function renderTipCard(activeCount) {
+    return `
+      <div class="card" style="padding: var(--space-12); margin-bottom: var(--space-12);">
+        <div style="display: flex; align-items: center; gap: var(--space-12);">
+          <div style="flex: 1; min-width: 0;">
+            <label class="muted text-xs" for="tip-input" style="display: block; text-transform: uppercase;">Mancia POS · ${escapeHtml(serviceLabel())}</label>
+            <p class="muted text-xs" id="tip-share" style="margin: 2px 0 0 0;">${escapeHtml(tipShareHint(activeCount))}</p>
+          </div>
+          <div style="flex: 0 0 120px; display: flex; align-items: center; gap: var(--space-4);">
+            <span class="muted">€</span>
+            <input type="number" id="tip-input" class="input" value="${escapeAttr(state.tipAmount)}" min="0" step="0.01" inputmode="decimal" placeholder="0,00" style="text-align: right; font-family: var(--font-display);">
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function tipShareHint(activeCount) {
+    const amt = parseNumberInput(state.tipAmount);
+    if (!(amt > 0)) return 'Divisa tra chi è in turno, sommata in busta a fine mese.';
+    if (activeCount === 0) return 'Nessuno in turno: inserisci prima le ore.';
+    return `€ ${fmtEuro(amt)} ÷ ${activeCount} in turno = € ${fmtEuro(amt / activeCount)} a testa`;
+  }
+
+  function updateTipHint() {
+    const el = container.querySelector('#tip-share');
+    if (el) el.textContent = tipShareHint(state.rows.filter((r) => Number(r.hours) > 0).length);
   }
 
   function renderRow(r, idx) {
@@ -252,7 +288,12 @@ export async function mountShiftsInsert(container, _params, query) {
         const idx = Number(e.target.dataset.hoursIdx);
         const v = parseNumberInput(e.target.value);
         state.rows[idx].hours = Number.isFinite(v) ? Math.max(0, Math.min(12, v)) : 0;
+        updateTipHint();
       });
+    });
+    container.querySelector('#tip-input')?.addEventListener('input', (e) => {
+      state.tipAmount = e.target.value;
+      updateTipHint();
     });
     container.querySelectorAll('[data-time-idx]').forEach((inp) => {
       inp.addEventListener('input', (e) => {
@@ -306,7 +347,16 @@ export async function mountShiftsInsert(container, _params, query) {
         hours: Number(r.hours).toFixed(2),
         notes: r.notes || null,
       }));
-    if (shifts.length === 0) { showToast('Nessun turno da salvare', 'warn'); return; }
+    const tipVal = parseNumberInput(state.tipAmount);
+    const hasTip = Number.isFinite(tipVal) && tipVal > 0;
+    const tipChanged = hasTip
+      ? !state.tip || Number(state.tip.amount) !== tipVal
+      : !!state.tip;
+    if (shifts.length === 0 && hasTip) {
+      showToast('La mancia si divide tra chi è in turno: inserisci prima le ore', 'warn', 5000);
+      return;
+    }
+    if (shifts.length === 0 && !tipChanged) { showToast('Nessun turno da salvare', 'warn'); return; }
     for (const sh of shifts) {
       if (!sh.start_time || !/^\d{2}:\d{2}/.test(sh.start_time)) {
         showToast('Inserisci un orario di inizio valido per ogni turno', 'warn');
@@ -319,8 +369,18 @@ export async function mountShiftsInsert(container, _params, query) {
       }
     }
     try {
-      await apiPost('/work-shifts/bulk', { date: state.date, shifts });
-      showToast(`Salvati ${shifts.length} turni`, 'success');
+      if (shifts.length > 0) {
+        await apiPost('/work-shifts/bulk', { date: state.date, shifts });
+      }
+      if (tipChanged) {
+        if (hasTip) {
+          await apiPut('/shift-tips', { date: state.date, service: state.service, amount: tipVal.toFixed(2) });
+        } else {
+          await apiDelete(`/shift-tips/${state.tip.id}`);
+        }
+      }
+      const tipMsg = tipChanged ? (hasTip ? ` · mancia € ${fmtEuro(tipVal)}` : ' · mancia rimossa') : '';
+      showToast(`Salvati ${shifts.length} turni${tipMsg}`, 'success');
       // Dopo aver salvato il pranzo, passa subito alla cena dello stesso giorno.
       if (state.service === 'lunch') {
         state.service = 'dinner';
@@ -340,6 +400,10 @@ function formatHours(v) {
   const n = Number(v);
   if (Number.isNaN(n)) return '0';
   return n % 1 === 0 ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+function fmtEuro(v) {
+  const n = Number(v);
+  return Number.isNaN(n) ? '0,00' : n.toFixed(2).replace('.', ',');
 }
 function initials(name) {
   return String(name || '').split(/\s+/).slice(0, 2).map((p) => p.charAt(0).toUpperCase()).join('');

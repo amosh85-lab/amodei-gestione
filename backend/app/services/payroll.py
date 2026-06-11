@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.cash import EmployeeAdvance
+from app.models.shift_tips import ShiftTip
 from app.models.users import PayType, User, UserRole
 from app.models.work_shifts import WorkShift
 
@@ -93,15 +94,49 @@ def get_users_without_shift(session: Session, d: date_type) -> list[User]:
     ))
 
 
+def calculate_tip_shares(
+    session: Session, first: date_type, last: date_type,
+) -> dict[int, Decimal]:
+    """Quota mance per utente nel periodo [first, last].
+
+    Ogni ShiftTip (date, service) si divide in parti uguali tra chi ha un
+    work_shift su quel (date, service). Le quote si accumulano NON
+    arrotondate; il chiamante quantizza il totale per utente a fine mese
+    (arrotondare le singole quote accumulerebbe errori di centesimi).
+    Una mancia senza turni salvati non viene distribuita.
+    """
+    shares: dict[int, Decimal] = {}
+    tips = list(session.scalars(
+        select(ShiftTip)
+        .where(ShiftTip.date >= first)
+        .where(ShiftTip.date <= last)
+    ))
+    for tip in tips:
+        participant_ids = list(session.scalars(
+            select(WorkShift.user_id)
+            .where(WorkShift.date == tip.date)
+            .where(WorkShift.service == tip.service)
+        ))
+        if not participant_ids:
+            continue
+        share = Decimal(tip.amount) / Decimal(len(participant_ids))
+        for uid in participant_ids:
+            shares[uid] = shares.get(uid, ZERO) + share
+    return shares
+
+
 def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
-    """Riepilogo stipendi mensile: ore × tariffa − acconti riferiti al mese.
+    """Riepilogo stipendi mensile: ore × tariffa + mance − acconti del mese.
 
     Filtro acconti = `reference_month = "YYYY-MM"` (NON .date). Coerente
     con la PATCH reference_month: ciò che la busta di X deve scalare è
     quanto è stato anticipato CON reference_month=X.
+    Le mance (shift_tips) entrano per .date nel mese, divise tra i
+    presenti di ogni (date, service) — vedi calculate_tip_shares.
     """
     first, last = _month_bounds(year, month)
     payroll_str = f"{year:04d}-{month:02d}"
+    tip_shares = calculate_tip_shares(session, first, last)
 
     # Tutti gli utenti staff+manager attivi (anche senza tariffa, mostrati con flag)
     users = list(session.scalars(
@@ -116,7 +151,7 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
     # del mese — qui contiamo SOLO le ore dei giorni interni al mese, ma
     # confrontiamo col contratto settimanale standard.
     rows: list[dict] = []
-    totals = {"hours": ZERO, "gross": ZERO, "advances": ZERO, "net": ZERO}
+    totals = {"hours": ZERO, "gross": ZERO, "advances": ZERO, "net": ZERO, "tips": ZERO}
 
     for u in users:
         # Ore totali del mese
@@ -170,14 +205,19 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
             .where(EmployeeAdvance.settled_at.is_(None))
         ) or 0
 
-        # Lordo / netto: dipende dal tipo di compenso
+        # Quota mance del mese (somma delle quote per turno, arrotondata qui)
+        tips_total = _q2(tip_shares.get(u.id, ZERO))
+
+        # Lordo / netto: dipende dal tipo di compenso. Le mance NON entrano
+        # nel lordo (non sono ore × tariffa) ma si sommano nel netto da
+        # consegnare.
         is_fixed = u.pay_type == PayType.fixed
         if is_fixed and u.monthly_salary is not None:
             gross = _q2(u.monthly_salary)
-            net = _q2(gross - adv_for_month)
+            net = _q2(gross + tips_total - adv_for_month)
         elif not is_fixed and u.hourly_rate is not None:
             gross = _q2(total_hours * u.hourly_rate)
-            net = _q2(gross - adv_for_month)
+            net = _q2(gross + tips_total - adv_for_month)
         else:
             gross = None
             net = None
@@ -216,6 +256,7 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
             "user": u,
             "total_hours": total_hours,
             "gross_amount": gross,
+            "tips_total": tips_total,
             "advances_taken": adv_for_month,
             "advances_cash": adv_cash_for_month,
             "advances_bonifico": adv_bonifico_for_month,
@@ -231,6 +272,7 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
             totals["gross"] += gross
             totals["net"] += net
         totals["advances"] += adv_for_month
+        totals["tips"] += tips_total
 
     return {
         "year": year, "month": month,
@@ -239,6 +281,7 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
         "totals": {
             "total_hours": _q2(totals["hours"]),
             "total_gross": _q2(totals["gross"]),
+            "total_tips": _q2(totals["tips"]),
             "total_advances": _q2(totals["advances"]),
             "total_net": _q2(totals["net"]),
         },

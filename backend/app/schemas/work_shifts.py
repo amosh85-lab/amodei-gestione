@@ -129,6 +129,7 @@ class MonthlyPayrollByUser(BaseModel):
     user: _UserMiniWithRate
     total_hours: Decimal
     gross_amount: Decimal | None = None       # None se hourly_rate non set
+    tips_total: Decimal = Decimal("0")        # quota mance POS del mese
     advances_taken: Decimal                   # filtro reference_month=YYYY-MM
     advances_cash: Decimal = Decimal("0")     # solo payment_method=cash
     advances_bonifico: Decimal = Decimal("0") # solo payment_method=bonifico
@@ -142,6 +143,7 @@ class MonthlyPayrollByUser(BaseModel):
 class MonthlyPayrollTotals(BaseModel):
     total_hours: Decimal
     total_gross: Decimal       # somma solo per chi ha tariffa
+    total_tips: Decimal = Decimal("0")
     total_advances: Decimal
     total_net: Decimal
 

@@ -56,6 +56,7 @@ from app.models.cash_vault import CashVaultMovement, MovementKind
 from app.models.push import PushSubscription
 from app.models.users import User, UserRole
 from app.models.work_shifts import WorkShift
+from app.models.shift_tips import ShiftTip
 from app.models.payroll_split import PayrollSplit
 from app.models.day_leave import DayLeave, DayLeaveKind
 
@@ -112,6 +113,8 @@ __all__ = [
     "AppSettingValueType",
     # work shifts
     "WorkShift",
+    # shift tips (mance POS)
+    "ShiftTip",
     # push notifications
     "PushSubscription",
     # cash vault

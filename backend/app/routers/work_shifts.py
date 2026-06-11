@@ -293,6 +293,7 @@ def monthly_payroll(
             ),
             total_hours=row["total_hours"],
             gross_amount=row["gross_amount"],
+            tips_total=row["tips_total"],
             advances_taken=row["advances_taken"],
             advances_cash=row["advances_cash"],
             advances_bonifico=row["advances_bonifico"],

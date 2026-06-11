@@ -120,6 +120,7 @@ export async function mountPayrollDashboard(container, _params, query) {
         <div class="card" style="padding: var(--space-12); background: var(--ink); color: var(--off-white);">
           <p class="text-xs" style="margin:0; text-transform: uppercase; opacity: 0.7; color: inherit;">Da consegnare</p>
           <p style="margin: var(--space-4) 0 0 0; font-family: var(--font-display); font-size: 1.4rem; font-weight: 600; color: inherit;">€ ${fmt(t.total_net)}</p>
+          ${Number(t.total_tips) > 0 ? `<p class="text-xs" style="margin: 2px 0 0 0; opacity: 0.7; color: inherit;">incl. mance € ${fmt(t.total_tips)}</p>` : ''}
         </div>
       </div>
     `;
@@ -169,6 +170,11 @@ export async function mountPayrollDashboard(container, _params, query) {
     // Quando c'è il bonus, mostro il lordo base (senza bonus) accanto, così
     // l'utente vede da dove parte e cosa si aggiunge.
     const baseGross = hasBonus ? Number(r.gross_amount) - Number(r.bonus_amount) : Number(r.gross_amount);
+    const tipsLine = Number(r.tips_total) > 0 ? `
+      <div class="row" style="justify-content: space-between;">
+        <span class="muted">Mance POS del mese</span>
+        <span style="font-family: var(--font-display); color: var(--bottle-green, #4f8e3a);">+ € ${fmt(r.tips_total)}</span>
+      </div>` : '';
     return `
       <div class="card" style="padding: var(--space-16); margin-bottom: var(--space-12);">
         <p style="margin: 0; font-weight: 600;">${escapeHtml(u.full_name)}</p>
@@ -177,6 +183,7 @@ export async function mountPayrollDashboard(container, _params, query) {
           <div class="row" style="justify-content: space-between;"><span class="muted">Ore lavorate</span><span style="font-family: var(--font-display);">${formatHours(r.total_hours)} h</span></div>
           <div class="row" style="justify-content: space-between;"><span class="muted">${grossLabel}</span><span style="font-family: var(--font-display);">€ ${fmt(baseGross)}</span></div>
           ${bonusLine}
+          ${tipsLine}
           <div class="row" style="justify-content: space-between;"><span class="muted">Acconti del mese${unsettledBadge}</span><span style="font-family: var(--font-display); color: var(--terracotta-dark);">− € ${fmt(r.advances_taken)}</span></div>
         </div>
         <div style="border-top: 2px solid var(--ink); margin-top: var(--space-12); padding-top: var(--space-12);">

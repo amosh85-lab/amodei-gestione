@@ -36,6 +36,7 @@ from app.routers import (
     push as push_router,
     reports as reports_router,
     settings as settings_router,
+    shift_tips as shift_tips_router,
     staff_meals as staff_meals_router,
     suppliers as suppliers_router,
     users as users_router,
@@ -162,6 +163,7 @@ app.include_router(invoices_router.router)
 app.include_router(payments_router.router)
 app.include_router(foodcost_router.router)
 app.include_router(work_shifts_router.router)
+app.include_router(shift_tips_router.router)
 app.include_router(reports_router.router)
 app.include_router(forecast_router.router)
 app.include_router(push_router.router)

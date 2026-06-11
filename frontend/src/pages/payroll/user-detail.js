@@ -48,15 +48,21 @@ export async function mountPayrollUserDetail(container, params, query) {
     ? (u.monthly_salary != null ? `<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">Fisso mensile: € ${fmt(u.monthly_salary)}</p>` : '<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">⚠ Stipendio mensile non configurato</p>')
     : (u.hourly_rate != null ? `<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">Tariffa: € ${fmt(u.hourly_rate)}/h${u.weekly_hours_contract ? ` · Contratto: ${formatHours(u.weekly_hours_contract)}h/sett` : ''}</p>` : '<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">⚠ Nessuna tariffa configurata</p>');
 
+  const tipsRow = Number(r.tips_total) > 0
+    ? `<div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Mance POS del mese</span><span style="font-family: var(--font-display); color: var(--bottle-green, #4f8e3a);">+ € ${fmt(r.tips_total)}</span></div>`
+    : '';
+
   const calcRows = isFixed
     ? `
         <div class="row" style="justify-content: space-between;"><span>Ore lavorate</span><span style="font-family: var(--font-display);">${formatHours(totalHours)} h</span></div>
         <div class="row" style="justify-content: space-between; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-soft);"><span>Fisso mensile</span><span style="font-family: var(--font-display);">€ ${fmt(r.gross_amount)}</span></div>
+        ${tipsRow}
         <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Acconti mese (ref ${escapeHtml(payrollStr)})</span><span style="font-family: var(--font-display); color: var(--terracotta-dark);">− € ${fmt(r.advances_taken)}</span></div>`
     : `
         <div class="row" style="justify-content: space-between;"><span>Ore totali</span><span style="font-family: var(--font-display);">${formatHours(totalHours)} h</span></div>
         <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Tariffa applicata</span><span style="font-family: var(--font-display);">€ ${fmt(u.hourly_rate)}/h</span></div>
         <div class="row" style="justify-content: space-between; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-soft);"><span>Lordo</span><span style="font-family: var(--font-display);">€ ${fmt(r.gross_amount)}</span></div>
+        ${tipsRow}
         <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Acconti mese (ref ${escapeHtml(payrollStr)})</span><span style="font-family: var(--font-display); color: var(--terracotta-dark);">− € ${fmt(r.advances_taken)}</span></div>`;
 
   container.innerHTML = `
