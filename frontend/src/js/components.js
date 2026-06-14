@@ -140,8 +140,25 @@ export function showModal(title, contentHTML, actions = []) {
       btn.type = 'button';
       btn.className = `btn btn--${a.variant || 'secondary'}`;
       btn.textContent = a.label;
-      btn.addEventListener('click', () => {
-        if (a.onClick) a.onClick(close);
+      btn.addEventListener('click', async () => {
+        // Anti doppio-invio: finché l'handler (spesso una POST async lenta sul
+        // cold start Railway) non termina, disabilito TUTTI i bottoni d'azione.
+        // Senza questo, su una rete lenta l'utente ritocca "Aggiungi" più volte
+        // e crea record duplicati. Riabilito solo se il modal è ancora aperto
+        // (errore → si può ritentare); se l'handler ha chiuso, restano disabili.
+        if (btn.disabled) return;
+        const actionBtns = actionsEl.querySelectorAll('button');
+        actionBtns.forEach((b) => { b.disabled = true; });
+        const restoreLabel = btn.textContent;
+        btn.textContent = `${a.label}…`;   // feedback "in corso" sul cold start lento
+        try {
+          if (a.onClick) await a.onClick(close);
+        } finally {
+          if (!closed) {
+            actionBtns.forEach((b) => { b.disabled = false; });
+            btn.textContent = restoreLabel;
+          }
+        }
         if (a.closeOnClick !== false) close();
       });
       actionsEl.appendChild(btn);
