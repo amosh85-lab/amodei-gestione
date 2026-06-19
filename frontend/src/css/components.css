@@ -412,11 +412,7 @@
    ============================================================ */
 
 .nav-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: var(--z-nav);
+  flex-shrink: 0;
   display: flex;
   background: var(--off-white);
   border-top: 1px solid var(--border-soft);

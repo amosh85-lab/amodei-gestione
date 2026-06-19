@@ -8,15 +8,16 @@
 .app-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  min-height: 100svh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .app-content {
   flex: 1;
+  min-height: 0; /* lets this flex child shrink so it scrolls internally */
   overflow-y: auto;
-  /* Leave room for the bottom nav (60px) + safe-area on iOS */
-  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-content--no-nav {
