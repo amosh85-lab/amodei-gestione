@@ -35,6 +35,7 @@ from app.models.invoices import (
     Payment,
     PaymentMethod,
 )
+from app.models.ddts import Ddt
 from app.models.inventory_close import EveningClose, EveningCloseItem
 from app.models.menu import CombinedDish, CombinedDishComponent
 from app.models.reorder import (
@@ -103,6 +104,8 @@ __all__ = [
     "PaymentMethod",
     "InvoicePayment",
     "SupplierCategory",
+    # ddt (documenti di trasporto)
+    "Ddt",
     # cash
     "ExpenseCategory",
     "PosSession",

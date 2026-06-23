@@ -87,6 +87,9 @@ route('/fatture',             lazy('../pages/invoices/list.js',        'mountInv
 route('/fatture/nuova',       lazy('../pages/invoices/new.js',         'mountInvoiceNew'),         { requires: ['admin', 'manager'] });
 route('/fatture/da-pagare',   lazy('../pages/invoices/unpaid.js',      'mountInvoicesUnpaid'),     { requires: ['admin'] });
 route('/fatture/:id',         lazy('../pages/invoices/detail.js',      'mountInvoiceDetail'),      { requires: ['admin', 'manager'] });
+route('/ddt',                 lazy('../pages/ddts/list.js',            'mountDdtList'),            { requires: ['admin', 'manager'] });
+route('/ddt/nuovo',           lazy('../pages/ddts/new.js',             'mountDdtNew'),             { requires: ['admin', 'manager'] });
+route('/ddt/:id',             lazy('../pages/ddts/detail.js',          'mountDdtDetail'),          { requires: ['admin', 'manager'] });
 route('/pagamenti',           lazy('../pages/payments/list.js',        'mountPaymentsList'),       { requires: ['admin'] });
 route('/pagamenti/:id',       lazy('../pages/payments/detail.js',      'mountPaymentDetail'),      { requires: ['admin'] });
 route('/food-cost',           lazy('../pages/foodcost/dashboard.js',   'mountFoodcostDashboard'),  { requires: ['admin', 'manager'] });

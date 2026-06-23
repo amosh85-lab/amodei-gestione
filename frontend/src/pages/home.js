@@ -123,6 +123,7 @@ function mountAdminHome(container, user) {
         ${tile('Food Cost',  'bar-chart', '/food-cost',  '#8B6A2E')}
         ${tile('Fornitori',  'phone',     '/fornitori',  '#3D5A3D')}
         ${tile('Fatture',    'cash',      '/fatture',    '#2563EB')}
+        ${tile('DDT',        'download',  '/ddt',        '#B5391F')}
         ${tile('Impostazioni','settings', '/impostazioni','#8A7A6E')}
       </div>
 

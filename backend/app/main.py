@@ -18,6 +18,7 @@ from app.routers import (
     cash_export as cash_export_router,
     cash_vault as cash_vault_router,
     daily_summary as daily_summary_router,
+    ddts as ddts_router,
     evening_close as evening_close_router,
     expense_categories as expense_categories_router,
     expenses as expenses_router,
@@ -160,6 +161,7 @@ app.include_router(advances_router.router)
 app.include_router(payroll_splits_router.router)
 app.include_router(day_leaves_router.router)
 app.include_router(invoices_router.router)
+app.include_router(ddts_router.router)
 app.include_router(payments_router.router)
 app.include_router(foodcost_router.router)
 app.include_router(work_shifts_router.router)
