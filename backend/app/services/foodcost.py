@@ -1,13 +1,18 @@
 """Food cost dashboard: invoices by supplier-category vs revenue.
 
+Base UFFICIALE del food cost = incasso REALE (computed_total): POS + contanti
++ spese + anticipi, ricalcolato live. Si aggiorna appena i dati del giorno
+sono inseriti (in particolare il contante di fine giornata), senza attendere
+la chiusura formale né l'inserimento del totale fiscale.
+
 Reads:
 - Invoices in the requested month, grouped by their Supplier.category.
-- DailySummary.fiscal_total for the month (always-defined denominator).
-- DailySummary.computed_total ricalcolato live (sanity check).
+- DailySummary.computed_total ricalcolato live = incasso reale (denominatore).
+- DailySummary.fiscal_total per la sola riga di riferimento/quadratura.
 - AppSetting.food_cost_threshold (default 32%).
 
-For each category returns total + invoice count + pct_fiscal + pct_computed +
-status ('ok' / 'warn' / 'alert' based on threshold).
+For each category returns total + invoice count + pct_computed (base) +
+pct_fiscal (riferimento) + status ('ok' / 'warn' / 'alert' sul reale).
 """
 from __future__ import annotations
 
@@ -70,13 +75,15 @@ def _pct(numerator: Decimal, denominator: Decimal) -> Decimal | None:
     return _q(numerator / denominator * 100)
 
 
-def _status_for(threshold: Decimal, pct_fiscal: Decimal | None, pct_computed: Decimal | None) -> str:
-    """ok = both below threshold (or unknown), warn = one above, alert = both above."""
-    over_fiscal = pct_fiscal is not None and pct_fiscal >= threshold
-    over_computed = pct_computed is not None and pct_computed >= threshold
-    if over_fiscal and over_computed:
+def _status_for(threshold: Decimal, pct_computed: Decimal | None) -> str:
+    """Stato guidato SOLO dall'incasso reale (computed): è la base ufficiale
+    del food cost. ok = sotto soglia o ancora ignoto, warn = vicino alla
+    soglia (entro 2 punti sotto), alert = pari o sopra soglia."""
+    if pct_computed is None:
+        return "ok"
+    if pct_computed >= threshold:
         return "alert"
-    if over_fiscal or over_computed:
+    if pct_computed >= threshold - Decimal("2"):
         return "warn"
     return "ok"
 
@@ -127,7 +134,7 @@ def calculate_foodcost(session: Session, year: int, month: int) -> dict:
             "invoices_count": count,
             "pct_fiscal": pct_fiscal,
             "pct_computed": pct_computed,
-            "status": _status_for(threshold, pct_fiscal, pct_computed),
+            "status": _status_for(threshold, pct_computed),
         }
         operating_total += total
     operating_total = _q(operating_total)
@@ -136,11 +143,7 @@ def calculate_foodcost(session: Session, year: int, month: int) -> dict:
         "total": operating_total,
         "pct_fiscal": _pct(operating_total, fiscal_revenue),
         "pct_computed": _pct(operating_total, computed_revenue),
-        "status": _status_for(
-            threshold,
-            _pct(operating_total, fiscal_revenue),
-            _pct(operating_total, computed_revenue),
-        ),
+        "status": _status_for(threshold, _pct(operating_total, computed_revenue)),
     }
 
     return {

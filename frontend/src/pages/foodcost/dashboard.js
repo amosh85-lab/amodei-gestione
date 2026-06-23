@@ -71,8 +71,8 @@ export async function mountFoodcostDashboard(container, _params, query) {
     if (state.year === today.getFullYear() && state.month === today.getMonth() + 1) {
       warnings.push('Il mese è in corso. Il dato si stabilizzerà a fine mese.');
     }
-    if (d.revenue.fiscal_days_count < d.revenue.month_days_count) {
-      warnings.push(`Solo ${d.revenue.fiscal_days_count} su ${d.revenue.month_days_count} giorni hanno il totale fiscale. Calcolo potrebbe essere parziale.`);
+    if (d.revenue.computed_days_count < d.revenue.month_days_count) {
+      warnings.push(`Solo ${d.revenue.computed_days_count} su ${d.revenue.month_days_count} giorni hanno l'incasso reale registrato. Il food cost si aggiorna man mano che inserisci i dati di cassa.`);
     }
     if (warnings.length === 0) return '';
     return warnings.map((w) => `
@@ -90,16 +90,16 @@ export async function mountFoodcostDashboard(container, _params, query) {
       <div class="card" style="padding: var(--space-20); margin-bottom: var(--space-16); background: var(--ink); color: var(--off-white);">
         <p class="text-xs" style="margin:0; text-transform: uppercase; opacity: 0.7; color: inherit;">Costo operativo totale</p>
         <p style="margin: var(--space-12) 0; font-family: var(--font-display); font-size: 3rem; font-weight: 600; line-height: 1; color: ${color};">
-          ${pct(op.pct_fiscal)} ${STATUS_DOT[op.status] || ''}
+          ${pct(op.pct_computed)} ${STATUS_DOT[op.status] || ''}
         </p>
         <p class="text-sm" style="margin: 0 0 var(--space-4) 0; opacity: 0.8; color: inherit;">
-          Su fatturato fiscale di € ${fmt(d.revenue.fiscal)}
+          Su incasso reale di € ${fmt(d.revenue.computed)}
         </p>
         <p class="text-sm" style="margin: 0; opacity: 0.8; color: inherit;">
           Costi totali: € ${fmt(op.total)}
         </p>
         <p class="text-xs" style="margin: var(--space-12) 0 0 0; opacity: 0.6; color: inherit; padding-top: var(--space-8); border-top: 1px solid rgba(255,255,255,0.15);">
-          Verifica su calcolato: ${pct(op.pct_computed)} (€ ${fmt(d.revenue.computed)})
+          Riferimento fiscale: ${pct(op.pct_fiscal)} (€ ${fmt(d.revenue.fiscal)})
         </p>
       </div>
     `;
@@ -119,7 +119,7 @@ export async function mountFoodcostDashboard(container, _params, query) {
       <div class="card" style="padding: var(--space-16); border-left: 4px solid ${CAT_COLOR[cat]};">
         <p class="muted text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">${CAT_LABEL[cat]}</p>
         <p style="margin: var(--space-4) 0 var(--space-8) 0; font-family: var(--font-display); font-size: 1.8rem; font-weight: 600;">
-          ${pct(c.pct_fiscal)} ${dot}
+          ${pct(c.pct_computed)} ${dot}
         </p>
         <p class="muted text-sm" style="margin:0;">€ ${fmt(c.total)} · ${c.invoices_count} fatture</p>
         <p class="muted text-xs" style="margin: var(--space-4) 0 var(--space-12) 0;">Soglia: ${pct(threshold)}</p>

@@ -65,8 +65,9 @@ def trend(
     session: Session = Depends(get_session),
     _user: User = Depends(require_manager_or_admin),
 ) -> list[dict]:
-    """N most recent months including current. One row per month with pct_fiscal
-    per category for chart consumption (line chart, 4 series)."""
+    """N most recent months including current. One row per month with the
+    food cost % per category basato sull'INCASSO REALE (pct_computed), per il
+    grafico (line chart, 4 series)."""
     today = date_type.today()
     out = []
     y, m = today.year, today.month
@@ -84,9 +85,9 @@ def trend(
             "year": yr,
             "month": mo,
             "month_label": data["month_label"],
-            "food_pct": cats["food"]["pct_fiscal"],
-            "beverage_pct": cats["beverage"]["pct_fiscal"],
-            "consumo_pct": cats["consumo"]["pct_fiscal"],
-            "operating_pct": data["operating_total"]["pct_fiscal"],
+            "food_pct": cats["food"]["pct_computed"],
+            "beverage_pct": cats["beverage"]["pct_computed"],
+            "consumo_pct": cats["consumo"]["pct_computed"],
+            "operating_pct": data["operating_total"]["pct_computed"],
         })
     return out
