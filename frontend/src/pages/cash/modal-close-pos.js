@@ -56,10 +56,11 @@ export function openNumpad({ title, initial = '', onConfirm }) {
   const body = `
     <div style="text-align: center;">
       <div id="np-display" style="
-        font-family: var(--font-display); font-size: 3.5rem; font-weight: 600;
-        color: var(--ink); padding: var(--space-12) 0; line-height: 1;
+        font-family: var(--font-display); font-size: clamp(2rem, 9vw, 3rem); font-weight: 600;
+        color: var(--ink); white-space: nowrap; overflow: hidden;
+        padding: var(--space-8) var(--space-12); line-height: 1.1;
         background: var(--cream-soft); border-radius: var(--radius-md);
-        margin-bottom: var(--space-20);">
+        margin-bottom: var(--space-12);">
         € ${fmt()}
       </div>
       <div id="np-grid" style="
@@ -67,10 +68,10 @@ export function openNumpad({ title, initial = '', onConfirm }) {
         gap: var(--space-8);">
         ${KEYS.map((k) => `
           <button type="button" data-key="${k}" style="
-            font-family: var(--font-display); font-size: 1.6rem; font-weight: 500;
-            padding: var(--space-20) 0; border: 1px solid var(--border-soft);
+            font-family: var(--font-display); font-size: 1.5rem; font-weight: 500;
+            padding: var(--space-12) 0; border: 1px solid var(--border-soft);
             border-radius: var(--radius-md); background: var(--off-white);
-            color: var(--ink); cursor: pointer;">${k === ',' ? ',' : k}</button>
+            color: var(--ink); cursor: pointer; touch-action: manipulation;">${k === ',' ? ',' : k}</button>
         `).join('')}
       </div>
     </div>
