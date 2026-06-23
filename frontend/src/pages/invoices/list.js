@@ -10,7 +10,7 @@ import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { userHasRole } from '../../js/auth.js';
 import { icon } from '../../js/icons.js';
-import { skeletonList } from '../../js/components.js';
+import { skeletonList, docTabs } from '../../js/components.js';
 
 const CAT_LABEL = { food: '🍖 Food', beverage: '🍷 Beverage', consumo: '🧴 Consumo' };
 const CAT_COLOR = {
@@ -84,6 +84,7 @@ export async function mountInvoicesList(container, _params, query) {
     const monthTotal = state.invoices.reduce((s, i) => s + Number(i.amount_total), 0);
     container.innerHTML = `
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 96px;">
+        ${docTabs('fatture')}
         ${renderKpi(monthTotal)}
         ${renderFilters()}
         <div id="inv-body" style="margin-top: var(--space-12);">${renderList()}</div>
@@ -205,6 +206,11 @@ export async function mountInvoicesList(container, _params, query) {
   }
 
   function wire() {
+    container.querySelectorAll('[data-doctab]').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (b.dataset.doctab !== '/fatture') navigate(b.dataset.doctab);
+      });
+    });
     container.querySelectorAll('[data-period]').forEach((b) => {
       b.addEventListener('click', () => {
         if (state.period === b.dataset.period && b.dataset.period !== 'custom') return;

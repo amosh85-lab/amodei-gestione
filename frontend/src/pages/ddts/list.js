@@ -10,7 +10,7 @@ import { apiGet, apiPost, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
-import { skeletonList, showModal, showToast } from '../../js/components.js';
+import { skeletonList, showModal, showToast, docTabs } from '../../js/components.js';
 import { todayLocalIso } from '../../js/dates.js';
 
 const CAT_LABEL = { food: '🍖 Food', beverage: '🍷 Beverage', consumo: '🧴 Consumo' };
@@ -55,6 +55,7 @@ export async function mountDdtList(container, _params, _query) {
   function render() {
     container.innerHTML = `
       <section class="container" style="padding-block: var(--space-12); padding-bottom: 96px;">
+        ${docTabs('ddt')}
         ${renderKpi()}
         ${renderGroups()}
         ${renderRecent()}
@@ -150,6 +151,11 @@ export async function mountDdtList(container, _params, _query) {
   }
 
   function wire() {
+    container.querySelectorAll('[data-doctab]').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (b.dataset.doctab !== '/ddt') navigate(b.dataset.doctab);
+      });
+    });
     container.querySelectorAll('[data-id]').forEach((b) => {
       b.addEventListener('click', () => navigate(`/ddt/${b.dataset.id}`));
     });

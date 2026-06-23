@@ -264,3 +264,21 @@ export function skeletonList(count = 3) {
   `;
   return `<div class="stack-12">${item.repeat(Math.max(1, count))}</div>`;
 }
+
+// Barra a linguette condivisa tra la lista DDT e la lista Fatture (scheda
+// unica "Fatture e DDT"). Restituisce solo HTML: ogni pagina poi aggancia il
+// click sui [data-doctab] e fa navigate() verso l'href, se non è già attiva.
+// `active` = 'ddt' | 'fatture'.
+export function docTabs(active) {
+  const tab = (id, label, href) => `
+    <button type="button" data-doctab="${href}" style="
+      flex: 1; padding: var(--space-8) var(--space-12); border-radius: var(--radius-md);
+      border: 1px solid ${active === id ? 'var(--terracotta)' : 'var(--border-soft)'};
+      background: ${active === id ? 'var(--terracotta)' : 'var(--off-white)'};
+      color: ${active === id ? 'var(--off-white)' : 'var(--ink)'};
+      font-weight: ${active === id ? '600' : '400'}; font-size: var(--text-sm); cursor: pointer;">${label}</button>`;
+  return `<div style="display: flex; gap: var(--space-8); margin-bottom: var(--space-16);">
+    ${tab('ddt', 'DDT', '/ddt')}
+    ${tab('fatture', 'Fatture', '/fatture')}
+  </div>`;
+}

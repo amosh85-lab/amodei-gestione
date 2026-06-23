@@ -122,8 +122,7 @@ function mountAdminHome(container, user) {
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
         ${tile('Food Cost',  'bar-chart', '/food-cost',  '#8B6A2E')}
         ${tile('Fornitori',  'phone',     '/fornitori',  '#3D5A3D')}
-        ${tile('Fatture',    'cash',      '/fatture',    '#2563EB')}
-        ${tile('DDT',        'download',  '/ddt',        '#B5391F')}
+        ${tile('Fatture e DDT', 'cash',   '/ddt',        '#2563EB')}
         ${tile('Impostazioni','settings', '/impostazioni','#8A7A6E')}
       </div>
 
