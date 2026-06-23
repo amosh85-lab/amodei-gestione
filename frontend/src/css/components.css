@@ -416,7 +416,9 @@
   display: flex;
   background: var(--off-white);
   border-top: 1px solid var(--border-soft);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Clearance per l'home-indicator iOS, senza sommarsi al padding dei
+     nav-item (che gia' danno var(--space-12) sotto) -> niente fascia doppia. */
+  padding-bottom: max(var(--space-4), calc(env(safe-area-inset-bottom, 0px) - var(--space-12)));
   box-shadow: 0 -2px 12px rgba(120, 30, 20, 0.06);
 }
 

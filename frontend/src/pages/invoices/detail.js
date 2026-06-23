@@ -6,13 +6,14 @@
 //   - "Elimina" (only if unpaid)
 // Manager sees only the invoice info — no payment hints.
 
-import { apiGet, apiDelete, absoluteUrl, ApiError } from '../../js/api.js';
+import { apiGet, apiPatch, apiDelete, absoluteUrl, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { userHasRole } from '../../js/auth.js';
 import { icon } from '../../js/icons.js';
-import { showModal, showToast, confirmDialog, skeletonList } from '../../js/components.js';
+import { showModal, showToast, confirmDialog, skeletonList, parseNumberInput } from '../../js/components.js';
 import { openRegisterPaymentModal } from '../payments/modal-register.js';
+import { todayLocalIso } from '../../js/dates.js';
 
 const CAT_LABEL = { food: '🍖 Food', beverage: '🍷 Beverage', consumo: '🧴 Consumo' };
 const METHOD_LABEL = { bank_transfer: '🏦 Bonifico', check: '📝 Assegno', cash: '💵 Contanti' };
@@ -37,6 +38,14 @@ export async function mountInvoiceDetail(container, params, _query) {
   render();
   return () => {};
 
+  // Chi può modificare: admin sempre, manager solo fatture del mese corrente
+  // (la stessa regola che il backend applica nel PATCH /invoices/{id}).
+  // Confronto sul prefisso "YYYY-MM" in ora locale — niente toISOString.
+  function canEdit() {
+    if (isAdmin) return true;
+    return inv.invoice_date.slice(0, 7) === todayLocalIso().slice(0, 7);
+  }
+
   function render() {
     container.innerHTML = `
       <section class="container" style="padding-block: var(--space-20); padding-bottom: 96px;">
@@ -59,6 +68,11 @@ export async function mountInvoiceDetail(container, params, _query) {
         ${inv.photo_url ? `
           <button type="button" id="view-photo" class="card" style="width: 100%; margin-top: var(--space-12); padding: var(--space-12); cursor: pointer; text-align: left; border: 1px solid var(--border-soft);">
             ${icon('image', { size: 18 })} <span style="margin-left: var(--space-8);">Vedi foto fattura</span>
+          </button>` : ''}
+
+        ${canEdit() ? `
+          <button type="button" id="edit" class="btn btn--secondary full-width" style="margin-top: var(--space-16);">
+            ${icon('edit', { size: 16 })}<span>Modifica fattura</span>
           </button>` : ''}
 
         ${isAdmin ? renderPaymentSection() : ''}
@@ -112,6 +126,8 @@ export async function mountInvoiceDetail(container, params, _query) {
         },
       });
     });
+    const edit = document.getElementById('edit');
+    if (edit) edit.addEventListener('click', openEditModal);
     const del = document.getElementById('del');
     if (del) del.addEventListener('click', async () => {
       const ok = await confirmDialog('Eliminare la fattura?', "L'azione è irreversibile.",
@@ -126,6 +142,79 @@ export async function mountInvoiceDetail(container, params, _query) {
         showToast(msg, 'danger', 5000);
       }
     });
+  }
+
+  function openEditModal() {
+    // Modifica i campi che il backend accetta nel PATCH: numero, data, importo, note.
+    // Fornitore e foto non sono modificabili da qui. L'importo è bloccato se la
+    // fattura è già pagata (il backend lo rifiuterebbe: il totale non tornerebbe
+    // più col pagamento registrato).
+    const amountDisabled = inv.is_paid;
+    const body = `
+      <form id="edit-form" class="stack-12" novalidate>
+        <div class="form-row">
+          <label class="label" for="ed-supplier">Fornitore</label>
+          <input id="ed-supplier" class="input" type="text" value="${escapeHtml(inv.supplier.name)}" disabled>
+          <p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">Il fornitore non si modifica da qui.</p>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8);">
+          <div class="form-row">
+            <label class="label label--required" for="ed-number">Numero fattura</label>
+            <input id="ed-number" class="input" type="text" maxlength="50" required value="${escapeHtml(inv.invoice_number)}">
+          </div>
+          <div class="form-row">
+            <label class="label label--required" for="ed-date">Data</label>
+            <input id="ed-date" class="input" type="date" required value="${escapeHtml(inv.invoice_date)}">
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="label label--required" for="ed-amount">Importo totale (€)</label>
+          <input id="ed-amount" class="input" type="number" step="0.01" min="0.01" required value="${escapeHtml(inv.amount_total)}" ${amountDisabled ? 'disabled' : ''}>
+          ${amountDisabled ? '<p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">Fattura già pagata: per cambiare l\'importo annulla prima il pagamento.</p>' : ''}
+        </div>
+        <div class="form-row">
+          <label class="label" for="ed-notes">Note (opzionale)</label>
+          <textarea id="ed-notes" class="textarea" maxlength="1000">${escapeHtml(inv.notes || '')}</textarea>
+        </div>
+      </form>
+    `;
+    showModal('Modifica fattura', body, [
+      { label: 'Annulla', variant: 'ghost' },
+      {
+        label: 'Salva',
+        variant: 'primary',
+        closeOnClick: false,
+        onClick: async (close) => {
+          const num = document.getElementById('ed-number').value.trim();
+          const dt = document.getElementById('ed-date').value;
+          const notes = document.getElementById('ed-notes').value.trim();
+          if (!num || !dt) {
+            showToast('Numero e data sono obbligatori', 'warn'); return;
+          }
+          const payload = { invoice_number: num, invoice_date: dt, notes: notes || null };
+          if (!amountDisabled) {
+            const amount = parseNumberInput(document.getElementById('ed-amount').value);
+            if (!Number.isFinite(amount) || amount <= 0) {
+              showToast('Importo non valido (es. 12.50)', 'warn'); return;
+            }
+            payload.amount_total = amount.toFixed(2);
+          }
+          try {
+            await apiPatch(`/invoices/${id}`, payload);
+            showToast('Fattura aggiornata', 'success');
+            inv = await apiGet(`/invoices/${id}`);
+            render();
+            close();
+          } catch (err) {
+            let msg = err instanceof ApiError && err.message ? err.message : 'Errore salvataggio';
+            if (err instanceof ApiError && err.status === 409) {
+              msg = 'Esiste già una fattura con questo numero per questo fornitore.';
+            }
+            showToast(msg, 'danger', 5000);
+          }
+        },
+      },
+    ]);
   }
 }
 
