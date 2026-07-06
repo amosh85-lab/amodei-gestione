@@ -81,6 +81,7 @@ route('/turni/settimanale',   lazy('../pages/shifts/weekly.js',        'mountShi
 route('/miei-turni',          lazy('../pages/shifts/my-shifts.js',     'mountMyShifts'),           { requires: 'auth' });
 route('/stipendi',             lazy('../pages/payroll/dashboard.js',     'mountPayrollDashboard'),   { requires: ['admin'] });
 route('/stipendi/ripartizione', lazy('../pages/payroll/ben-dan.js',      'mountBenDan'),             { requires: ['admin'] });
+route('/stipendi/mance',       lazy('../pages/payroll/tips.js',          'mountPayrollTips'),        { requires: ['admin'] });
 route('/stipendi/:user_id',    lazy('../pages/payroll/user-detail.js',   'mountPayrollUserDetail'),  { requires: ['admin'] });
 route('/guida',               lazy('../pages/guide.js',                'mountGuide'),              { requires: 'auth' });
 route('/fatture',             lazy('../pages/invoices/list.js',        'mountInvoicesList'),       { requires: ['admin', 'manager'] });

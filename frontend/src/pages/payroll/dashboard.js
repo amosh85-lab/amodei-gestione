@@ -17,6 +17,7 @@ export async function mountPayrollDashboard(container, _params, query) {
     brand: true,
     backHref: '/',
     actions: [
+      { label: 'Mance', iconName: 'copy', onClick: () => navigate(`/stipendi/mance?year=${state.year}&month=${state.month}`) },
       { label: 'Ben / Dan', iconName: 'bar-chart', onClick: () => navigate(`/stipendi/ripartizione?year=${state.year}&month=${state.month}`) },
     ],
   });
