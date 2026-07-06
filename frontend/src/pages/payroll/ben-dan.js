@@ -11,7 +11,14 @@ import { icon } from '../../js/icons.js';
 import { showModal, showToast, skeletonList } from '../../js/components.js';
 
 export async function mountBenDan(container, _params, query) {
-  setHeader({ title: 'Ripartizione Ben / Dan', brand: true, backHref: '/stipendi' });
+  setHeader({
+    title: 'Ripartizione Ben / Dan',
+    brand: true,
+    backHref: '/stipendi',
+    actions: [
+      { label: 'Tabella stipendi', iconName: 'table', onClick: () => navigate(`/stipendi/tabella?year=${state.year}&month=${state.month}`) },
+    ],
+  });
   container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">${skeletonList(3)}</div>`;
 
   const now = new Date();

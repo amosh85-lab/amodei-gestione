@@ -48,6 +48,8 @@ const PATHS = {
     '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   copy:
     '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  table:
+    '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M12 3v18"/>',
   filter:
     '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
 
