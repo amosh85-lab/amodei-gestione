@@ -2,12 +2,8 @@
 //
 // Vista compatta e copiabile della ripartizione: una riga per dipendente
 // con colonne Nome / Ben (bonifico) / Dan (contanti), totali in fondo.
-// Il Dan include la quota mance POS del mese (tips_total dal payroll):
-// le mance si consegnano in contanti, quindi entrano nel totale Dan —
-// richiesta di Amos del 09/07. La pagina Ripartizione mostra invece il
-// solo dan_amount salvato.
-// Dati da monthly-payroll + payroll-splits; il bottone copia il riepilogo
-// come testo semplice da inviare.
+// Stessi dati di /stipendi/ripartizione (monthly-payroll + payroll-splits);
+// il bottone copia il riepilogo come testo semplice da inviare.
 
 import { apiGet } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
@@ -54,19 +50,14 @@ export async function mountSalaryTable(container, _params, query) {
   }
 
   // Righe della tabella: tutti i dipendenti attivi, con Ben/Dan a 0 se la
-  // ripartizione del mese non è ancora stata impostata. Il Dan mostrato è
-  // dan_amount + quota mance del mese.
+  // ripartizione del mese non è ancora stata impostata.
   function tableRows() {
     return state.data.by_user.map((r) => {
       const split = state.splits?.[r.user.id];
-      const tips = Number(r.tips_total) || 0;
-      const danBase = split ? Number(split.dan_amount) : 0;
       return {
         name: r.user.full_name,
         ben: split ? Number(split.ben_amount) : 0,
-        danBase,
-        tips,
-        dan: danBase + tips,
+        dan: split ? Number(split.dan_amount) : 0,
         hasSplit: !!split,
       };
     });
@@ -85,7 +76,7 @@ export async function mountSalaryTable(container, _params, query) {
         <div class="alert alert--warn" style="margin-bottom: var(--space-16);">
           <span class="alert__icon">${icon('warning', { size: 20 })}</span>
           <div class="alert__body"><p class="alert__text">
-            ${missing === 1 ? 'Un dipendente non ha' : `${missing} dipendenti non hanno`} ancora la ripartizione Ben/Dan impostata per questo mese (in tabella compaiono solo le eventuali mance). Si imposta da Stipendi → Ben / Dan.
+            ${missing === 1 ? 'Un dipendente non ha' : `${missing} dipendenti non hanno`} ancora la ripartizione Ben/Dan impostata per questo mese (in tabella a € 0,00). Si imposta da Stipendi → Ben / Dan.
           </p></div>
         </div>` : ''}
         ${rows.length === 0
@@ -105,9 +96,7 @@ export async function mountSalaryTable(container, _params, query) {
               <tr style="border-bottom: 1px solid var(--border-soft);">
                 <td style="padding: var(--space-8) var(--space-12);">${escapeHtml(r.name)}</td>
                 <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display); color: ${BEN_COLOR};">€ ${fmt(r.ben)}</td>
-                <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display); color: var(--terracotta);">€ ${fmt(r.dan)}
-                  ${r.tips > 0 ? `<div class="muted text-xs" style="font-family: var(--font-body, inherit);">di cui mance € ${fmt(r.tips)}</div>` : ''}
-                </td>
+                <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display); color: var(--terracotta);">€ ${fmt(r.dan)}</td>
               </tr>`).join('')}
             </tbody>
             <tfoot>
@@ -135,16 +124,14 @@ export async function mountSalaryTable(container, _params, query) {
 
   function buildText(rows, totBen, totDan) {
     const d = state.data;
-    const totTips = rows.reduce((acc, r) => acc + r.tips, 0);
     const lines = [
       `Stipendi (Ben / Dan) — ${d.month_label}`,
       'Amodei Wine Bar',
       '',
-      ...rows.map((r) => `${r.name}: Ben € ${fmt(r.ben)} — Dan € ${fmt(r.dan)}`
-        + (r.tips > 0 ? ` (di cui mance € ${fmt(r.tips)})` : '')),
+      ...rows.map((r) => `${r.name}: Ben € ${fmt(r.ben)} — Dan € ${fmt(r.dan)}`),
       '',
       `TOTALE Ben: € ${fmt(totBen)}`,
-      `TOTALE Dan: € ${fmt(totDan)}${totTips > 0 ? ` (di cui mance € ${fmt(totTips)})` : ''}`,
+      `TOTALE Dan: € ${fmt(totDan)}`,
       `TOTALE COMPLESSIVO: € ${fmt(totBen + totDan)}`,
     ];
     return lines.join('\n');
