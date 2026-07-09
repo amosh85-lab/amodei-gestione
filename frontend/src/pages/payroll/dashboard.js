@@ -10,6 +10,10 @@ import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
 import { showModal, showToast, skeletonList, parseNumberInput } from '../../js/components.js';
 import { todayLocalIso } from '../../js/dates.js';
+import {
+  BONUS_THRESHOLD, BONUS_STEP, BONUS_PER_TIER,
+  isBonusEligible, managerBonus, summaryRevenue, monthIso,
+} from '../../js/manager-bonus.js';
 
 export async function mountPayrollDashboard(container, _params, query) {
   setHeader({
@@ -347,44 +351,14 @@ function countAdvances(r) {
 }
 
 // ---- Manager bonus -----------------------------------------------------
-// Soglia 40.000 €/mese: scatta 250 €. Ogni 5.000 € sopra soglia: altri 250 €.
-// Solo per Marco (gli altri manager in organico non hanno questo accordo).
-const BONUS_THRESHOLD = 40000;
-const BONUS_STEP      = 5000;
-const BONUS_PER_TIER  = 250;
-const BONUS_ELIGIBLE_EMAILS = new Set([
-  'marco.sanarighi86@icloud.com',
-]);
-
-function isBonusEligible(user) {
-  return !!user && BONUS_ELIGIBLE_EMAILS.has((user.email || '').toLowerCase());
-}
-
-function managerBonus(monthlyRevenue) {
-  const rev = Number(monthlyRevenue) || 0;
-  if (rev < BONUS_THRESHOLD) return 0;
-  const tiers = Math.floor((rev - BONUS_THRESHOLD) / BONUS_STEP) + 1;
-  return tiers * BONUS_PER_TIER;
-}
+// Logica in src/js/manager-bonus.js (condivisa con la Tabella stipendi).
+// Qui resta solo la label, che usa il fmt locale.
 
 function managerBonusLabel(monthlyRevenue) {
   const rev = Number(monthlyRevenue) || 0;
   if (rev < BONUS_THRESHOLD) return `sotto soglia 40k`;
   const tiers = Math.floor((rev - BONUS_THRESHOLD) / BONUS_STEP) + 1;
-  return `${tiers} × 250 € · incassi € ${fmt(rev)}`;
-}
-
-function summaryRevenue(s) {
-  if (!s) return null;
-  const v = s.computed_total ?? s.fiscal_total ?? (Number(s.pos_total) > 0 ? s.pos_total : null);
-  return v != null ? Number(v) : null;
-}
-
-function monthIso(year, month /* 1-indexed */) {
-  const first = new Date(year, month - 1, 1);
-  const last  = new Date(year, month, 0);
-  const f = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return { from: f(first), to: f(last) };
+  return `${tiers} × ${BONUS_PER_TIER} € · incassi € ${fmt(rev)}`;
 }
 
 function fmt(v) { const n = Number(v); return Number.isNaN(n) ? '0,00' : n.toFixed(2).replace('.', ','); }
