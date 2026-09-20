@@ -305,6 +305,12 @@ export async function mountAdvancesList(container, _params, query) {
       </div>
     `;
     const actions = [{ label: 'Chiudi', variant: 'ghost' }];
+    if (isAdmin && !settled) {
+      actions.push({
+        label: 'Elimina', variant: 'danger', closeOnClick: true,
+        onClick: () => deleteAdvance(adv.id),
+      });
+    }
     if (isAdmin) {
       actions.push({
         label: 'Cambia mese di riferimento', variant: 'secondary', closeOnClick: true,
