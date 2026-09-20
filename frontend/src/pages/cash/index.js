@@ -346,6 +346,7 @@ export async function mountCashPage(container, _params, query) {
           <p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">Per stipendio: ${refBadge}${a.notes ? ' · ' + escapeHtml(a.notes) : (settled ? ' · saldato in ' + escapeHtml(a.settled_in_payroll_month) : '')}</p>
         </div>
         <p style="margin:0; font-family: var(--font-display); font-size: var(--text-lg); color: var(--ink);">− € ${formatMoney(a.amount)}</p>
+        ${isAdmin && !settled ? `<button type="button" data-adv-del="${a.id}" class="btn btn--ghost btn--icon" aria-label="Elimina">${icon('trash', { size: 14 })}</button>` : ''}
       </div>
     `;
   }
@@ -602,6 +603,21 @@ export async function mountCashPage(container, _params, query) {
         try {
           await apiDelete(`/expenses/${id}`);
           showToast('Spesa eliminata', 'success');
+          await load();
+        } catch (err) {
+          showToast(err.message || 'Errore', 'danger');
+        }
+      });
+    });
+    container.querySelectorAll('[data-adv-del]').forEach((b) => {
+      b.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        const id = Number(b.dataset.advDel);
+        const ok = await confirmDialog('Eliminare l\'acconto?', 'L\'azione è irreversibile.', { confirmLabel: 'Elimina', danger: true });
+        if (!ok) return;
+        try {
+          await apiDelete(`/advances/${id}`);
+          showToast('Acconto eliminato', 'success');
           await load();
         } catch (err) {
           showToast(err.message || 'Errore', 'danger');
