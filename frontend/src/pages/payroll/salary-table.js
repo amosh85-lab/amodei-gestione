@@ -4,7 +4,8 @@
 // mensile) + mance del mese + bonus incasso (solo Marco Sanarighi).
 // Il Ben (bonifico) si imposta a mano da Stipendi → Ben/Dan; il Dan
 // (contanti) NON si scrive: è GENERATO come Totale − Ben.
-// Colonne: Nome / Totale / Ben / Dan, totali in fondo, testo copiabile.
+// Colonne: Nome / Totale / Ben / Dan / Acconti (già presi, informativo),
+// totali in fondo, testo copiabile.
 
 import { apiGet } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
@@ -58,7 +59,9 @@ export async function mountSalaryTable(container, _params, query) {
 
   // Una riga per dipendente. total = lordo + mance + bonus; dan = total − ben.
   // Senza tariffa configurata il totale non è calcolabile → riga segnalata
-  // ed esclusa dai totali di colonna.
+  // ed esclusa dai totali di colonna. Acconti = quanto già preso nel mese
+  // di riferimento (bonifico + contanti), solo a scopo informativo: non
+  // vengono sottratti da Ben/Dan qui (la ripartizione si fa in Ben/Dan).
   function tableRows() {
     return state.data.by_user.map((r) => {
       const split = state.splits?.[r.user.id];
@@ -74,6 +77,9 @@ export async function mountSalaryTable(container, _params, query) {
         bonus,
         total,
         dan: total != null ? total - ben : null,
+        advancesCash: Number(r.advances_cash) || 0,
+        advancesBonifico: Number(r.advances_bonifico) || 0,
+        advancesTotal: Number(r.advances_taken) || 0,
         hasBen: !!split && Number(split.ben_amount) > 0,
         computable,
       };
@@ -87,6 +93,7 @@ export async function mountSalaryTable(container, _params, query) {
     const totTot = usable.reduce((acc, r) => acc + r.total, 0);
     const totBen = usable.reduce((acc, r) => acc + r.ben, 0);
     const totDan = usable.reduce((acc, r) => acc + r.dan, 0);
+    const totAcc = rows.reduce((acc, r) => acc + r.advancesTotal, 0);
     const missingBen = usable.filter((r) => !r.hasBen).length;
     const notComputable = rows.length - usable.length;
     const negatives = usable.filter((r) => r.dan < 0).length;
@@ -125,6 +132,7 @@ export async function mountSalaryTable(container, _params, query) {
                 <th style="text-align: right; padding: var(--space-8) var(--space-12); font-weight: 600;">Totale</th>
                 <th style="text-align: right; padding: var(--space-8) var(--space-12); font-weight: 600; color: ${BEN_COLOR};">Ben</th>
                 <th style="text-align: right; padding: var(--space-8) var(--space-12); font-weight: 600; color: var(--terracotta);">Dan</th>
+                <th style="text-align: right; padding: var(--space-8) var(--space-12); font-weight: 600; color: var(--ink-muted);">Acconti</th>
               </tr>
             </thead>
             <tbody>
@@ -136,6 +144,7 @@ export async function mountSalaryTable(container, _params, query) {
                 <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display); font-weight: 600;">€ ${fmt(totTot)}</td>
                 <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display); font-weight: 600; color: ${BEN_COLOR};">€ ${fmt(totBen)}</td>
                 <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display); font-weight: 600; color: var(--terracotta);">€ ${fmt(totDan)}</td>
+                <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display); font-weight: 600; color: var(--ink-muted);">€ ${fmt(totAcc)}</td>
               </tr>
             </tfoot>
           </table>
@@ -143,7 +152,7 @@ export async function mountSalaryTable(container, _params, query) {
         <button type="button" data-copy class="btn btn--primary" style="width: 100%;">
           ${icon('copy', { size: 16 })} Copia tabella
         </button>
-        <pre id="salary-text" class="muted" style="margin-top: var(--space-16); padding: var(--space-12); background: var(--cream-soft); border-radius: var(--radius-md); font-size: var(--text-xs); white-space: pre-wrap; overflow-x: auto;">${escapeHtml(buildText(rows, totTot, totBen, totDan))}</pre>
+        <pre id="salary-text" class="muted" style="margin-top: var(--space-16); padding: var(--space-12); background: var(--cream-soft); border-radius: var(--radius-md); font-size: var(--text-xs); white-space: pre-wrap; overflow-x: auto;">${escapeHtml(buildText(rows, totTot, totBen, totDan, totAcc))}</pre>
         `}
       </section>
     `;
@@ -155,7 +164,7 @@ export async function mountSalaryTable(container, _params, query) {
       return `
       <tr style="border-bottom: 1px solid var(--border-soft);">
         <td style="padding: var(--space-8) var(--space-12);">${escapeHtml(r.name)}</td>
-        <td colspan="3" class="muted" style="text-align: right; padding: var(--space-8) var(--space-12);">⚠ tariffa non configurata</td>
+        <td colspan="4" class="muted" style="text-align: right; padding: var(--space-8) var(--space-12);">⚠ tariffa non configurata</td>
       </tr>`;
     }
     const parts = [];
@@ -165,16 +174,23 @@ export async function mountSalaryTable(container, _params, query) {
       ? `<div class="muted text-xs">incl. ${parts.join(' · ')}</div>`
       : '';
     const danStyle = r.dan < 0 ? 'color: var(--warning, #c9942a);' : 'color: var(--terracotta);';
+    const accParts = [];
+    if (r.advancesBonifico > 0) accParts.push(`bonifico € ${fmt(r.advancesBonifico)}`);
+    if (r.advancesCash > 0) accParts.push(`contanti € ${fmt(r.advancesCash)}`);
+    const accBreakdown = accParts.length
+      ? `<div class="muted text-xs">${accParts.join(' · ')}</div>`
+      : '';
     return `
       <tr style="border-bottom: 1px solid var(--border-soft);">
         <td style="padding: var(--space-8) var(--space-12);">${escapeHtml(r.name)}</td>
         <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display);">€ ${fmt(r.total)}${breakdown}</td>
         <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display); color: ${BEN_COLOR};">€ ${fmt(r.ben)}</td>
         <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display); ${danStyle}">${r.dan < 0 ? '⚠ ' : ''}€ ${fmt(r.dan)}</td>
+        <td style="text-align: right; padding: var(--space-8) var(--space-12); font-family: var(--font-display); color: var(--ink-muted);">${r.advancesTotal > 0 ? `€ ${fmt(r.advancesTotal)}${accBreakdown}` : '—'}</td>
       </tr>`;
   }
 
-  function buildText(rows, totTot, totBen, totDan) {
+  function buildText(rows, totTot, totBen, totDan, totAcc) {
     const d = state.data;
     const lines = [
       `Stipendi (Ben / Dan) — ${d.month_label}`,
@@ -186,12 +202,14 @@ export async function mountSalaryTable(container, _params, query) {
         if (r.tips > 0) parts.push(`mance € ${fmt(r.tips)}`);
         if (r.bonus > 0) parts.push(`bonus € ${fmt(r.bonus)}`);
         const inc = parts.length ? ` (incl. ${parts.join(', ')})` : '';
-        return `${r.name}: Totale € ${fmt(r.total)}${inc} — Ben € ${fmt(r.ben)} — Dan € ${fmt(r.dan)}`;
+        const acc = r.advancesTotal > 0 ? ` — Acconti già presi € ${fmt(r.advancesTotal)}` : '';
+        return `${r.name}: Totale € ${fmt(r.total)}${inc} — Ben € ${fmt(r.ben)} — Dan € ${fmt(r.dan)}${acc}`;
       }),
       '',
       `TOTALE: € ${fmt(totTot)}`,
       `TOTALE Ben (bonifico): € ${fmt(totBen)}`,
       `TOTALE Dan (contanti): € ${fmt(totDan)}`,
+      `TOTALE Acconti già presi: € ${fmt(totAcc)}`,
     ];
     return lines.join('\n');
   }
@@ -228,8 +246,9 @@ export async function mountSalaryTable(container, _params, query) {
         const totTot = usable.reduce((acc, r) => acc + r.total, 0);
         const totBen = usable.reduce((acc, r) => acc + r.ben, 0);
         const totDan = usable.reduce((acc, r) => acc + r.dan, 0);
+        const totAcc = rows.reduce((acc, r) => acc + r.advancesTotal, 0);
         try {
-          await copyToClipboard(buildText(rows, totTot, totBen, totDan));
+          await copyToClipboard(buildText(rows, totTot, totBen, totDan, totAcc));
           showToast('Tabella stipendi copiata', 'success');
         } catch {
           showToast('Copia non riuscita: seleziona e copia il testo qui sotto', 'warn', 5000);
