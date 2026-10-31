@@ -1,10 +1,11 @@
 // /fatture/:id — detail of one invoice.
 //
-// Admin sees the payment status block (paid/unpaid) and actions:
+// Admin sees the payment status block (paid/unpaid) and payment actions:
 //   - "Registra pagamento" (if unpaid) → opens payment modal pre-filled
 //   - "Vai al pagamento" (if paid) → /pagamenti/:id
-//   - "Elimina" (only if unpaid)
 // Manager sees only the invoice info — no payment hints.
+// "Elimina" (only if unpaid): admin always, manager only invoices of the
+// current month (same canEdit() rule as the backend DELETE /invoices/{id}).
 
 import { apiGet, apiPatch, apiDelete, absoluteUrl, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
@@ -38,8 +39,9 @@ export async function mountInvoiceDetail(container, params, _query) {
   render();
   return () => {};
 
-  // Chi può modificare: admin sempre, manager solo fatture del mese corrente
-  // (la stessa regola che il backend applica nel PATCH /invoices/{id}).
+  // Chi può modificare/eliminare: admin sempre, manager solo fatture del
+  // mese corrente (la stessa regola che il backend applica su
+  // PATCH/DELETE /invoices/{id}).
   // Confronto sul prefisso "YYYY-MM" in ora locale — niente toISOString.
   function canEdit() {
     if (isAdmin) return true;
@@ -77,7 +79,7 @@ export async function mountInvoiceDetail(container, params, _query) {
 
         ${isAdmin ? renderPaymentSection() : ''}
 
-        ${isAdmin && !inv.is_paid ? `
+        ${canEdit() && !inv.is_paid ? `
           <button type="button" id="del" class="btn btn--ghost full-width" style="margin-top: var(--space-20); color: var(--terracotta-dark);">
             ${icon('trash', { size: 16 })}<span>Elimina fattura</span>
           </button>` : ''}

@@ -1,13 +1,15 @@
 """/invoices router — supplier invoices CRUD with role-aware response shape.
 
 Permission model:
-- Manager + admin: create / read list / read detail / update unpaid invoices
-  → response is InvoiceOut (no payment info).
-- Admin only: delete invoice (only if unpaid) + see is_paid/payment in response
-  → response is InvoiceOutWithPayment.
+- Manager + admin: create / read list / read detail / update / delete unpaid
+  invoices → response is InvoiceOut (no payment info).
+- Admin only: see is_paid/payment in response → response is
+  InvoiceOutWithPayment.
 - Staff: 403 on every endpoint.
 
-Manager constraint: can update invoice only if invoice_date is in current month.
+Manager constraint: can update/delete an invoice only if invoice_date is in
+the current month, and never if it's already paid (admin only, via
+unsettle-the-payment-first flow). Admin has no date constraint.
 """
 from __future__ import annotations
 
@@ -310,14 +312,15 @@ def update_invoice(
 
 
 # ---------------------------------------------------------------------
-# DELETE /invoices/{id} (admin only)
+# DELETE /invoices/{id} — manager + admin, only if unpaid
+# (manager limited to invoices of the current month, like update_invoice)
 
 
 @router.delete("/{invoice_id}")
 def delete_invoice(
     invoice_id: int,
     session: Session = Depends(get_session),
-    actor: User = Depends(require_admin),
+    actor: User = Depends(require_manager_or_admin),
 ) -> dict:
     inv = session.get(Invoice, invoice_id)
     if inv is None:
@@ -325,7 +328,13 @@ def delete_invoice(
     if inv.invoice_payment is not None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
                             "Fattura collegata a un pagamento. Annulla prima il pagamento associato.")
+    is_admin = actor.role == UserRole.admin
+    if not is_admin:
+        first, end_excl = _current_month_range()
+        if not (first <= inv.invoice_date < end_excl):
+            raise HTTPException(status.HTTP_403_FORBIDDEN,
+                                "Il manager può eliminare solo fatture del mese corrente.")
     session.delete(inv)
     session.commit()
-    logger.info("Invoice deleted: id=%d by_admin=%d", invoice_id, actor.id)
+    logger.info("Invoice deleted: id=%d by=%d", invoice_id, actor.id)
     return {"deleted_id": invoice_id}
