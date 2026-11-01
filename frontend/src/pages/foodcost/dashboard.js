@@ -1,4 +1,6 @@
 // /food-cost — monthly food cost dashboard (manager/admin).
+// Il totale per categoria = fatture del mese + DDT non ancora fatturati del
+// mese (vedi backend/app/services/foodcost.py per il dettaglio).
 
 import { apiGet } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
@@ -115,13 +117,15 @@ export async function mountFoodcostDashboard(container, _params, query) {
 
   function renderCatCard(cat, c, threshold) {
     const dot = STATUS_DOT[c.status] || '';
+    const hasDdt = Number(c.ddts_total) > 0;
     return `
       <div class="card" style="padding: var(--space-16); border-left: 4px solid ${CAT_COLOR[cat]};">
         <p class="muted text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">${CAT_LABEL[cat]}</p>
         <p style="margin: var(--space-4) 0 var(--space-8) 0; font-family: var(--font-display); font-size: 1.8rem; font-weight: 600;">
           ${pct(c.pct_computed)} ${dot}
         </p>
-        <p class="muted text-sm" style="margin:0;">€ ${fmt(c.total)} · ${c.invoices_count} fatture</p>
+        <p class="muted text-sm" style="margin:0;">€ ${fmt(c.total)} · ${c.invoices_count} fatture${hasDdt ? ` + ${c.ddts_count} DDT non fatturati` : ''}</p>
+        ${hasDdt ? `<p class="muted text-xs" style="margin: 2px 0 0 0;">di cui € ${fmt(c.invoices_total)} fatture, € ${fmt(c.ddts_total)} DDT ancora da fatturare</p>` : ''}
         <p class="muted text-xs" style="margin: var(--space-4) 0 var(--space-12) 0;">Soglia: ${pct(threshold)}</p>
         <button type="button" data-cat-detail="${cat}" class="btn btn--ghost btn--sm">${icon('eye', { size: 14 })} Vedi dettaglio</button>
       </div>

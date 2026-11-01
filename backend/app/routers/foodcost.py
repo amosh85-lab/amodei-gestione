@@ -11,8 +11,11 @@ from app.database import get_session
 from app.dependencies.auth import require_manager_or_admin
 from app.models.inventory import Supplier
 from app.models.users import User
-from app.schemas.invoices import InvoiceMini
-from app.services.foodcost import calculate_foodcost, get_category_breakdown
+from app.services.foodcost import (
+    calculate_foodcost,
+    get_category_breakdown,
+    get_unbilled_ddts_breakdown,
+)
 
 router = APIRouter(prefix="/foodcost", tags=["foodcost"])
 
@@ -36,26 +39,49 @@ def monthly_breakdown(
     session: Session = Depends(get_session),
     _user: User = Depends(require_manager_or_admin),
 ) -> list[dict]:
+    """Dettaglio per fornitore di cosa compone il food cost del mese: ogni
+    riga (`items`) è una fattura ("invoice", invoice_date) o un DDT non
+    ancora fatturato ("ddt", ddt_date) — mai entrambi per lo stesso importo,
+    vedi calculate_foodcost."""
     today = date_type.today()
-    invoices = get_category_breakdown(session, year or today.year, month or today.month, category)
+    y, m = year or today.year, month or today.month
+    invoices = get_category_breakdown(session, y, m, category)
+    unbilled_ddts = get_unbilled_ddts_breakdown(session, y, m, category)
+
     by_supplier: dict[int, dict] = {}
-    for inv in invoices:
-        sid = inv.supplier_id
-        if sid not in by_supplier:
-            supplier = session.get(Supplier, sid)
-            by_supplier[sid] = {
+
+    def _bucket(supplier_id: int) -> dict:
+        if supplier_id not in by_supplier:
+            supplier = session.get(Supplier, supplier_id)
+            by_supplier[supplier_id] = {
                 "supplier": {
                     "id": supplier.id, "name": supplier.name,
                     "category": supplier.category.value if hasattr(supplier.category, "value") else supplier.category,
                 },
-                "total": 0, "count": 0, "invoices": [],
+                "total": 0.0, "count": 0, "items": [],
             }
-        by_supplier[sid]["total"] = float(by_supplier[sid]["total"]) + float(inv.amount_total)
-        by_supplier[sid]["count"] += 1
-        by_supplier[sid]["invoices"].append(InvoiceMini(
-            id=inv.id, invoice_number=inv.invoice_number,
-            invoice_date=inv.invoice_date, amount_total=inv.amount_total,
-        ))
+        return by_supplier[supplier_id]
+
+    for inv in invoices:
+        b = _bucket(inv.supplier_id)
+        b["total"] += float(inv.amount_total)
+        b["count"] += 1
+        b["items"].append({
+            "kind": "invoice", "id": inv.id, "number": inv.invoice_number,
+            "date": inv.invoice_date, "amount_total": inv.amount_total,
+        })
+    for d in unbilled_ddts:
+        b = _bucket(d.supplier_id)
+        b["total"] += float(d.amount_total)
+        b["count"] += 1
+        b["items"].append({
+            "kind": "ddt", "id": d.id, "number": d.ddt_number,
+            "date": d.ddt_date, "amount_total": d.amount_total,
+        })
+
+    for b in by_supplier.values():
+        b["items"].sort(key=lambda it: it["date"], reverse=True)
+
     return sorted(by_supplier.values(), key=lambda r: r["total"], reverse=True)
 
 

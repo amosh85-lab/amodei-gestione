@@ -67,7 +67,9 @@ class DdtOut(BaseModel):
     updated_at: datetime | None = None
 
 
-# ----- /summary response shape (raggruppati per fornitore, solo non fatturati) -----
+# ----- /summary response shape (solo non fatturati), raggruppati PRIMA per
+# mese del DDT (ddt_date) e POI per fornitore — niente più un unico mucchio
+# per fornitore che accumula mesi diversi. -----
 
 class DdtBySupplierRow(BaseModel):
     supplier: _SupplierMiniWithCategory
@@ -76,10 +78,18 @@ class DdtBySupplierRow(BaseModel):
     ddts: list[DdtMini]
 
 
+class DdtByMonthGroup(BaseModel):
+    reference_month: str   # "YYYY-MM" (mese di ddt_date)
+    label: str              # "Maggio 2026"
+    total: Decimal
+    count: int
+    by_supplier: list[DdtBySupplierRow]
+
+
 class DdtSummaryOut(BaseModel):
     total_unbilled: Decimal
     count: int
-    by_supplier: list[DdtBySupplierRow]
+    by_month: list[DdtByMonthGroup]
 
 
 # ----- POST /ddts/generate-invoice -----

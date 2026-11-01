@@ -1,4 +1,8 @@
 // /food-cost/dettaglio?category=food&year=2026&month=5
+//
+// Ogni riga di ogni fornitore è una fattura (kind=invoice → tap va al
+// dettaglio fattura) o un DDT non ancora fatturato (kind=ddt → tap va al
+// dettaglio DDT, con badge "da fatturare").
 
 import { apiGet } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
@@ -34,13 +38,16 @@ export async function mountFoodcostBreakdown(container, _params, query) {
         <p class="muted text-xs" style="margin: 2px 0 0 0;">${data.length} fornitori</p>
       </div>
       ${data.length === 0
-        ? '<p class="muted" style="text-align: center; padding: var(--space-16); background: var(--cream-soft); border-radius: var(--radius-md);">Nessuna fattura in questa categoria nel mese.</p>'
+        ? '<p class="muted" style="text-align: center; padding: var(--space-16); background: var(--cream-soft); border-radius: var(--radius-md);">Nessuna fattura o DDT in questa categoria nel mese.</p>'
         : data.map(renderGroup).join('')}
     </section>
   `;
 
-  container.querySelectorAll('[data-invoice]').forEach((b) => {
-    b.addEventListener('click', () => navigate(`/fatture/${b.dataset.invoice}`));
+  container.querySelectorAll('[data-item]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const dest = b.dataset.kind === 'ddt' ? `/ddt/${b.dataset.item}` : `/fatture/${b.dataset.item}`;
+      navigate(dest);
+    });
   });
 
   function renderGroup(g) {
@@ -50,11 +57,11 @@ export async function mountFoodcostBreakdown(container, _params, query) {
           <p style="margin:0; font-weight: 600;">${escapeHtml(g.supplier.name)}</p>
           <p style="margin:0; font-family: var(--font-display); font-size: 1.2rem;">€ ${fmt(g.total)}</p>
         </div>
-        <p class="muted text-xs" style="margin: 2px 0 var(--space-8) 0;">${g.count} fatture</p>
-        ${g.invoices.map((i) => `
-          <button type="button" data-invoice="${i.id}" style="display: block; width: 100%; padding: var(--space-4) 0; text-align: left; background: transparent; border: none; border-top: 1px solid var(--border-soft); cursor: pointer;">
+        <p class="muted text-xs" style="margin: 2px 0 var(--space-8) 0;">${g.count} voci</p>
+        ${g.items.map((i) => `
+          <button type="button" data-item="${i.id}" data-kind="${i.kind}" style="display: block; width: 100%; padding: var(--space-4) 0; text-align: left; background: transparent; border: none; border-top: 1px solid var(--border-soft); cursor: pointer;">
             <div style="display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-8);">
-              <span class="muted text-sm">#${escapeHtml(i.invoice_number)} · ${formatDate(i.invoice_date)}</span>
+              <span class="muted text-sm">#${escapeHtml(i.number)} · ${formatDate(i.date)}${i.kind === 'ddt' ? ' · <span style="color: var(--warning, #c9942a);">da fatturare</span>' : ''}</span>
               <span style="font-family: var(--font-display); font-size: var(--text-sm);">€ ${fmt(i.amount_total)}</span>
             </div>
           </button>

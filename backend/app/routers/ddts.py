@@ -38,6 +38,7 @@ from app.models.invoices import Invoice
 from app.models.inventory import Supplier
 from app.models.users import User, UserRole
 from app.schemas.ddts import (
+    DdtByMonthGroup,
     DdtBySupplierRow,
     DdtMini,
     DdtOut,
@@ -50,6 +51,19 @@ from app.services.storage import UploadError, upload_image
 
 router = APIRouter(prefix="/ddts", tags=["ddts"])
 logger = logging.getLogger("amodei.ddts")
+
+MONTH_LABELS_IT = [
+    "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+    "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+]
+
+
+def _month_label(reference_month: str) -> str:
+    try:
+        y, m = reference_month.split("-")
+        return f"{MONTH_LABELS_IT[int(m) - 1]} {y}"
+    except (ValueError, IndexError):
+        return reference_month
 
 
 def _current_month_range(today: date_type | None = None) -> tuple[date_type, date_type]:
@@ -199,35 +213,54 @@ def ddts_summary(
         select(Ddt).where(Ddt.invoice_id.is_(None)).order_by(Ddt.ddt_date.asc())
     ))
     if not ddts:
-        return DdtSummaryOut(total_unbilled=Decimal("0"), count=0, by_supplier=[])
+        return DdtSummaryOut(total_unbilled=Decimal("0"), count=0, by_month=[])
 
     suppliers_by_id = {
         s.id: s for s in session.scalars(
             select(Supplier).where(Supplier.id.in_({d.supplier_id for d in ddts}))
         )
     }
-    groups: dict[int, DdtBySupplierRow] = {}
+
+    # Raggruppamento: mese (ddt_date) → fornitore. Così "Genera fattura" opera
+    # sempre su DDT di UN SOLO mese per fornitore, invece di accumulare mesi
+    # diversi in un unico mucchio (fonte di errori nella fattura generata).
+    by_month: dict[str, dict] = {}
     total = Decimal("0")
     for d in ddts:
         s = suppliers_by_id.get(d.supplier_id)
         if not s:
             continue
-        if s.id not in groups:
-            groups[s.id] = DdtBySupplierRow(
+        ym = d.ddt_date.strftime("%Y-%m")
+        if ym not in by_month:
+            by_month[ym] = {"total": Decimal("0"), "count": 0, "by_supplier": {}}
+        mb = by_month[ym]
+        mb["total"] += d.amount_total
+        mb["count"] += 1
+        total += d.amount_total
+        if s.id not in mb["by_supplier"]:
+            mb["by_supplier"][s.id] = DdtBySupplierRow(
                 supplier={"id": s.id, "name": s.name,
                           "category": s.category.value if hasattr(s.category, "value") else s.category},
                 total=Decimal("0"), count=0, ddts=[],
             )
-        groups[s.id].total += d.amount_total
-        groups[s.id].count += 1
-        groups[s.id].ddts.append(DdtMini(
+        grp = mb["by_supplier"][s.id]
+        grp.total += d.amount_total
+        grp.count += 1
+        grp.ddts.append(DdtMini(
             id=d.id, ddt_number=d.ddt_number,
             ddt_date=d.ddt_date, amount_total=d.amount_total,
         ))
-        total += d.amount_total
 
-    rows = sorted(groups.values(), key=lambda r: r.total, reverse=True)
-    return DdtSummaryOut(total_unbilled=total, count=len(ddts), by_supplier=rows)
+    # Ordine: mese più vecchio prima (così si fattura prima l'arretrato).
+    out_months = []
+    for ym in sorted(by_month.keys()):
+        mb = by_month[ym]
+        suppliers_sorted = sorted(mb["by_supplier"].values(), key=lambda r: r.total, reverse=True)
+        out_months.append(DdtByMonthGroup(
+            reference_month=ym, label=_month_label(ym),
+            total=mb["total"], count=mb["count"], by_supplier=suppliers_sorted,
+        ))
+    return DdtSummaryOut(total_unbilled=total, count=len(ddts), by_month=out_months)
 
 
 # ---------------------------------------------------------------------
