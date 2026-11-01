@@ -1,18 +1,25 @@
-"""Food cost dashboard: invoices by supplier-category vs revenue.
+"""Food cost dashboard: DDT non fatturati + fatture per supplier-category, vs revenue.
 
 Base UFFICIALE del food cost = incasso REALE (computed_total): POS + contanti
 + spese + anticipi, ricalcolato live. Si aggiorna appena i dati del giorno
 sono inseriti (in particolare il contante di fine giornata), senza attendere
 la chiusura formale né l'inserimento del totale fiscale.
 
+Costo del mese (numeratore) = somma DDT NON ANCORA FATTURATI del mese
+(ddt_date, invoice_id IS NULL) + somma fatture del mese (invoice_date).
+Quando un DDT viene fatturato (generate-invoice), il suo importo esce dal
+primo addendo ed entra nel secondo tramite la fattura generata: non si
+somma due volte, e il DDT resta come riferimento/storico (invoice_id).
+
 Reads:
+- Unbilled Ddt (invoice_id IS NULL) in the requested month (ddt_date).
 - Invoices in the requested month, grouped by their Supplier.category.
 - DailySummary.computed_total ricalcolato live = incasso reale (denominatore).
 - DailySummary.fiscal_total per la sola riga di riferimento/quadratura.
 - AppSetting.food_cost_threshold (default 32%).
 
-For each category returns total + invoice count + pct_computed (base) +
-pct_fiscal (riferimento) + status ('ok' / 'warn' / 'alert' sul reale).
+For each category returns total (ddt + invoice) + breakdown + pct_computed
+(base) + pct_fiscal (riferimento) + status ('ok' / 'warn' / 'alert' sul reale).
 """
 from __future__ import annotations
 
@@ -26,6 +33,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.cash import DailySummary
+from app.models.ddts import Ddt
 from app.models.inventory import Supplier, SupplierCategory
 from app.models.invoices import Invoice
 from app.models.settings import AppSetting
@@ -121,17 +129,34 @@ def calculate_foodcost(session: Session, year: int, month: int) -> dict:
         .where(Invoice.invoice_date >= first, Invoice.invoice_date < next_first)
         .group_by(Supplier.category)
     ).all()
-    by_category_raw = {row[0]: (_q(row[1]), int(row[2])) for row in rows}
+    by_category_invoice = {row[0]: (_q(row[1]), int(row[2])) for row in rows}
+
+    # ---- DDT NON fatturati by category (invoice_id IS NULL) ----
+    # Fatturati esclusi: il loro importo è già contato tramite la fattura
+    # generata (sopra), non vanno sommati due volte.
+    ddt_rows = session.execute(
+        select(Supplier.category, func.coalesce(func.sum(Ddt.amount_total), 0), func.count(Ddt.id))
+        .join(Ddt, Ddt.supplier_id == Supplier.id)
+        .where(Ddt.ddt_date >= first, Ddt.ddt_date < next_first)
+        .where(Ddt.invoice_id.is_(None))
+        .group_by(Supplier.category)
+    ).all()
+    by_category_ddt = {row[0]: (_q(row[1]), int(row[2])) for row in ddt_rows}
 
     categories = {}
     operating_total = ZERO
     for cat in (SupplierCategory.food, SupplierCategory.beverage, SupplierCategory.consumo):
-        total, count = by_category_raw.get(cat, (ZERO, 0))
+        inv_total, inv_count = by_category_invoice.get(cat, (ZERO, 0))
+        ddt_total, ddt_count = by_category_ddt.get(cat, (ZERO, 0))
+        total = _q(inv_total + ddt_total)
         pct_fiscal = _pct(total, fiscal_revenue)
         pct_computed = _pct(total, computed_revenue)
         categories[cat.value] = {
             "total": total,
-            "invoices_count": count,
+            "invoices_total": inv_total,
+            "invoices_count": inv_count,
+            "ddts_total": ddt_total,
+            "ddts_count": ddt_count,
             "pct_fiscal": pct_fiscal,
             "pct_computed": pct_computed,
             "status": _status_for(threshold, pct_computed),
@@ -170,4 +195,17 @@ def get_category_breakdown(session: Session, year: int, month: int, category: st
         .where(Supplier.category == category)
         .where(Invoice.invoice_date >= first, Invoice.invoice_date < next_first)
         .order_by(Supplier.name, Invoice.invoice_date)
+    ))
+
+
+def get_unbilled_ddts_breakdown(session: Session, year: int, month: int, category: str) -> list[Ddt]:
+    """DDT non ancora fatturati del mese (per categoria) — l'altra metà del
+    costo del mese oltre alle fatture, vedi calculate_foodcost."""
+    first, next_first = _month_range(year, month)
+    return list(session.scalars(
+        select(Ddt).join(Supplier, Ddt.supplier_id == Supplier.id)
+        .where(Supplier.category == category)
+        .where(Ddt.ddt_date >= first, Ddt.ddt_date < next_first)
+        .where(Ddt.invoice_id.is_(None))
+        .order_by(Supplier.name, Ddt.ddt_date)
     ))

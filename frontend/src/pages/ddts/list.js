@@ -1,9 +1,10 @@
 // /ddt — documenti di trasporto (manager/admin).
 //
 // Due sezioni:
-//   1. "Da fatturare" — DDT non ancora fatturati, RAGGRUPPATI PER FORNITORE,
-//      con totale del gruppo e bottone "Genera fattura" (somma i DDT e crea
-//      la fattura di fine mese).
+//   1. "Da fatturare" — DDT non ancora fatturati, RAGGRUPPATI PRIMA PER MESE
+//      (del ddt_date) E POI PER FORNITORE, con totale del gruppo e bottone
+//      "Genera fattura" (somma i DDT di quel mese per quel fornitore e crea
+//      la fattura). Niente più mesi diversi accumulati nello stesso mucchio.
 //   2. "DDT del mese" — elenco recente; tap → dettaglio. Badge "Fatturato".
 
 import { apiGet, apiPost, ApiError } from '../../js/api.js';
@@ -83,19 +84,35 @@ export async function mountDdtList(container, _params, _query) {
   }
 
   function renderGroups() {
-    const groups = (state.summary && state.summary.by_supplier) || [];
-    if (groups.length === 0) {
+    const months = (state.summary && state.summary.by_month) || [];
+    if (months.length === 0) {
       return `<p class="muted" style="margin: 0 0 var(--space-16) 0; padding: var(--space-16); text-align: center; background: var(--cream-soft); border-radius: var(--radius-md);">Nessun DDT da fatturare. 🎉</p>`;
     }
     return `
-      <h2 class="text-sm" style="margin: 0 0 var(--space-8) 0; text-transform: uppercase; letter-spacing: 0.04em;" class="muted">Da fatturare per fornitore</h2>
-      <div class="stack-12" style="margin-bottom: var(--space-20);">
-        ${groups.map((g) => groupCard(g)).join('')}
+      <h2 class="text-sm muted" style="margin: 0 0 var(--space-8) 0; text-transform: uppercase; letter-spacing: 0.04em;">Da fatturare per mese</h2>
+      <div style="margin-bottom: var(--space-20);">
+        ${months.map((mb) => monthSection(mb)).join('')}
       </div>
     `;
   }
 
-  function groupCard(g) {
+  function monthSection(mb) {
+    return `
+      <div style="margin-bottom: var(--space-16);">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--space-8);">
+          <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.1rem; color: var(--terracotta); text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">
+            ── ${escapeHtml(mb.label.toUpperCase())} ──
+          </h3>
+          <span class="muted text-sm" style="font-family: var(--font-display);">€ ${fmt(mb.total)}</span>
+        </div>
+        <div class="stack-12">
+          ${mb.by_supplier.map((g) => groupCard(g, mb.reference_month)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function groupCard(g, referenceMonth) {
     return `
       <div class="card" style="padding: var(--space-12) var(--space-16);">
         <div style="display: flex; justify-content: space-between; gap: var(--space-8); align-items: baseline;">
@@ -108,7 +125,7 @@ export async function mountDdtList(container, _params, _query) {
           </div>
           <span style="font-family: var(--font-display); font-size: 1.3rem;">€ ${fmt(g.total)}</span>
         </div>
-        <button type="button" data-gen="${g.supplier.id}" class="btn btn--primary full-width" style="margin-top: var(--space-12);">
+        <button type="button" data-gen="${referenceMonth}|${g.supplier.id}" class="btn btn--primary full-width" style="margin-top: var(--space-12);">
           ${icon('check', { size: 16 })}<span>Genera fattura</span>
         </button>
       </div>
@@ -160,8 +177,11 @@ export async function mountDdtList(container, _params, _query) {
       b.addEventListener('click', () => navigate(`/ddt/${b.dataset.id}`));
     });
     container.querySelectorAll('[data-gen]').forEach((b) => {
+      // data-gen="REFERENCE_MONTH|SUPPLIER_ID"
+      const [refMonth, supplierIdStr] = b.dataset.gen.split('|');
       b.addEventListener('click', () => {
-        const group = (state.summary.by_supplier || []).find((g) => String(g.supplier.id) === b.dataset.gen);
+        const mb = (state.summary.by_month || []).find((m) => m.reference_month === refMonth);
+        const group = mb && mb.by_supplier.find((g) => String(g.supplier.id) === supplierIdStr);
         if (group) openGenerateModal(group);
       });
     });
