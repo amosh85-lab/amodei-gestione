@@ -84,6 +84,8 @@ route('/stipendi/ripartizione', lazy('../pages/payroll/ben-dan.js',      'mountB
 route('/stipendi/mance',       lazy('../pages/payroll/tips.js',          'mountPayrollTips'),        { requires: ['admin'] });
 route('/stipendi/tabella',     lazy('../pages/payroll/salary-table.js',  'mountSalaryTable'),        { requires: ['admin'] });
 route('/stipendi/:user_id',    lazy('../pages/payroll/user-detail.js',   'mountPayrollUserDetail'),  { requires: ['admin'] });
+route('/statistiche',          lazy('../pages/statistics/dashboard.js', 'mountStatisticsDashboard'), { requires: ['admin'] });
+route('/consulenti',           lazy('../pages/consulenti/export.js',    'mountConsulentiExport'),   { requires: ['admin'] });
 route('/guida',               lazy('../pages/guide.js',                'mountGuide'),              { requires: 'auth' });
 route('/fatture',             lazy('../pages/invoices/list.js',        'mountInvoicesList'),       { requires: ['admin', 'manager'] });
 route('/fatture/nuova',       lazy('../pages/invoices/new.js',         'mountInvoiceNew'),         { requires: ['admin', 'manager'] });

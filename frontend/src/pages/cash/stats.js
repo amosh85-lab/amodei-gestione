@@ -59,7 +59,13 @@ export async function mountCashStats(container, _params, _query) {
       .toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
 
     const totalCurrent = sumComputed(state.currentMonth);
-    const totalPrev    = sumComputed(state.prevMonth);
+    // Confronto "a parità di giorni": il mese prec. conta solo i giorni fino
+    // allo stesso giorno-del-mese dell'ultimo giorno con dati inseriti nel
+    // mese corrente — non l'intero mese precedente (altrimenti un mese
+    // ancora a metà sembra sempre in calo rispetto a un mese prec. completo).
+    const lastDay = lastDayWithData(state.currentMonth);
+    const totalPrev = lastDay == null ? sumComputed(state.prevMonth)
+                     : sumComputed(state.prevMonth.filter((s) => dayOf(s.date) <= lastDay));
     const mom = momCompare(totalCurrent, totalPrev);
 
     const byCategory = aggregateExpensesByCategory(state.expenses);
@@ -85,7 +91,7 @@ export async function mountCashStats(container, _params, _query) {
     const color = mom.pct == null ? 'var(--ink-muted)'
                  : mom.pct >= 0 ? 'var(--success, #4f8e3a)' : 'var(--terracotta-dark)';
     const pctText = mom.pct == null ? '— vs. mese precedente'
-                    : `${arrow} ${Math.abs(mom.pct).toFixed(1).replace('.', ',')}% vs. mese precedente (€ ${formatMoney(prevTotal)})`;
+                    : `${arrow} ${Math.abs(mom.pct).toFixed(1).replace('.', ',')}% vs. stessi giorni mese precedente (€ ${formatMoney(prevTotal)})`;
     return `
       <div class="card" style="padding: var(--space-16);">
         <p class="muted text-xs" style="margin:0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">Totale mese</p>
@@ -188,6 +194,22 @@ function monthRange(year, month) {
 
 function sumComputed(summaries) {
   return summaries.reduce((s, x) => s + (x.computed_total != null ? Number(x.computed_total) : 0), 0);
+}
+
+function dayOf(iso) {
+  return Number(iso.slice(8, 10));
+}
+
+// Ultimo giorno-del-mese per cui esiste un incasso calcolato, o null se
+// il mese corrente non ha ancora nessun dato.
+function lastDayWithData(summaries) {
+  let max = null;
+  for (const s of summaries) {
+    if (s.computed_total == null) continue;
+    const d = dayOf(s.date);
+    if (max == null || d > max) max = d;
+  }
+  return max;
 }
 
 function momCompare(curTotal, prevTotal) {
