@@ -118,6 +118,14 @@ function mountAdminHome(container, user) {
         ${isAdmin ? tile('Stipendi', 'cash', '/stipendi', '#2563EB') : tile('Pasti staff', 'cash', '/pasti-staff', '#8B6A2E')}
       </div>
 
+      ${isAdmin ? `
+      <p style="margin: 24px 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Statistiche</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        ${tile('Statistiche', 'bar-chart', '/statistiche', '#6a4c93')}
+        ${tile('Per Consulenti', 'users', '/consulenti', '#B5391F')}
+      </div>
+      ` : ''}
+
       <p style="margin: 24px 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Altro</p>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
         ${tile('Food Cost',  'bar-chart', '/food-cost',  '#8B6A2E')}
