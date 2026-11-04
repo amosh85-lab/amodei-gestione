@@ -8,10 +8,14 @@
 //    voce assente per tutti gli altri) — Dan = Totale + Bonus − (Ben + Mancia).
 //    Nota: le mance si sottraggono nel Dan perché vengono già girate ai
 //    dipendenti durante il mese (non restano nella busta cash di fine mese).
+//    Poi gli acconti già dati nel mese (bonifico → scalati dal Ben, contanti
+//    → scalati dal Dan) e quindi quanto resta ancora da dare: Ben da dare /
+//    Dan da dare.
 //
-// Dati da: /work-shifts/monthly-payroll (lordo, mance), /payroll-splits
-// (Ben), /day-leaves (ferie/malattia), bonus calcolato come in
-// payroll/salary-table.js (vedi js/manager-bonus.js — unica fonte).
+// Dati da: /work-shifts/monthly-payroll (lordo, mance, acconti già presi
+// nel mese per metodo), /payroll-splits (Ben), /day-leaves (ferie/
+// malattia), bonus calcolato come in payroll/salary-table.js (vedi
+// js/manager-bonus.js — unica fonte).
 
 import { apiGet } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
@@ -65,10 +69,15 @@ export async function mountConsulentiExport(container, _params, query) {
         // parte, solo per Marco — vedi commento in testa al file).
         const totale = computable ? Number(r.gross_amount) + tips : null;
         const dan = computable ? (totale + bonus) - (ben + tips) : null;
+        const accBonifico = Number(r.advances_bonifico) || 0;
+        const accCash = Number(r.advances_cash) || 0;
+        const benDue = computable ? ben - accBonifico : null;
+        const danDue = computable ? dan - accCash : null;
         const leave = leavesByUser[r.user.id] || { ferie: 0, malattia: 0 };
         return {
           name: r.user.full_name, computable,
           totale, ben, tips, bonus, dan,
+          accBonifico, accCash, benDue, danDue,
           ferieCount: leave.ferie, malattiaCount: leave.malattia,
         };
       });
@@ -99,6 +108,7 @@ export async function mountConsulentiExport(container, _params, query) {
         <h2 style="margin: var(--space-24) 0 var(--space-8) 0; font-family: var(--font-display); font-size: var(--text-lg);">Per Amos</h2>
         <p class="muted text-xs" style="margin: 0 0 var(--space-8) 0;">
           Dan = Totale (lordo+mance) + Bonus − (Ben + Mancia): le mance escono dal Dan perché già girate ai dipendenti durante il mese.
+          Acconti già dati nel mese scalati dal Ben (bonifico) o dal Dan (contanti) → "Ben/Dan da dare" è quanto resta ancora da versare.
           Controlla i numeri prima di usarli: se la logica non è quella che intendevi, dimmelo e la correggo.
         </p>
         <div class="card" style="padding: var(--space-12);">
@@ -147,6 +157,10 @@ export async function mountConsulentiExport(container, _params, query) {
       ];
       if (r.bonus > 0) parts.push(`Bonus € ${fmt(r.bonus)}`);
       parts.push(`Dan € ${fmt(r.dan)}`);
+      if (r.accBonifico > 0) parts.push(`Acconto bonifico già dato € ${fmt(r.accBonifico)}`);
+      if (r.accCash > 0) parts.push(`Acconto contanti già dato € ${fmt(r.accCash)}`);
+      parts.push(`Ben da dare € ${fmt(r.benDue)}`);
+      parts.push(`Dan da dare € ${fmt(r.danDue)}`);
       lines.push(`${r.name}: ${parts.join(' - ')}`);
     }
     return lines.join('\n');
