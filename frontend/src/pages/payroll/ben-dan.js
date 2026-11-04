@@ -3,12 +3,18 @@
 // Acconti separati per metodo:
 //  - Acconti B = somma EmployeeAdvance.payment_method='bonifico' ref_month
 //  - Acconti C = somma EmployeeAdvance.payment_method='cash'     ref_month
+//
+// Bonus incasso del mese (solo Marco, vedi js/manager-bonus.js) si somma
+// nel Dan: il Dan qui è manuale (non ricalcolato da Totale come in
+// salary-table.js), quindi il bonus va aggiunto esplicitamente al Dan
+// inserito prima di sottrarre gli acconti contanti.
 
 import { apiGet, apiPut, ApiError } from '../../js/api.js';
 import { setHeader } from '../../js/app-shell.js';
 import { navigate } from '../../js/router.js';
 import { icon } from '../../js/icons.js';
 import { showModal, showToast, skeletonList } from '../../js/components.js';
+import { isBonusEligible, managerBonus, summaryRevenue, monthIso } from '../../js/manager-bonus.js';
 
 export async function mountBenDan(container, _params, query) {
   setHeader({
@@ -27,6 +33,7 @@ export async function mountBenDan(container, _params, query) {
     month: parseInt(query.month, 10) || (now.getMonth() + 1),
     data: null,
     splits: {},
+    bonus: 0,
   };
 
   await load();
@@ -35,13 +42,17 @@ export async function mountBenDan(container, _params, query) {
   async function load() {
     try {
       const refMonth = `${state.year}-${String(state.month).padStart(2, '0')}`;
-      const [data, splits] = await Promise.all([
+      const range = monthIso(state.year, state.month);
+      const [data, splits, summaries] = await Promise.all([
         apiGet(`/work-shifts/monthly-payroll?year=${state.year}&month=${state.month}`),
         apiGet(`/payroll-splits?payroll_month=${refMonth}`).catch(() => []),
+        apiGet(`/daily-summary?from=${range.from}&to=${range.to}&limit=31`).catch(() => []),
       ]);
       state.data = data;
       state.splits = {};
       for (const s of splits) state.splits[s.user_id] = s;
+      const monthlyRevenue = summaries.reduce((acc, s) => acc + (summaryRevenue(s) ?? 0), 0);
+      state.bonus = managerBonus(monthlyRevenue);
       render();
     } catch (err) {
       container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">
@@ -69,10 +80,11 @@ export async function mountBenDan(container, _params, query) {
       const split = state.splits?.[r.user.id];
       const ben = split ? Number(split.ben_amount) : 0;
       const dan = split ? Number(split.dan_amount) : 0;
+      const bonus = isBonusEligible(r.user) && !r.needs_configuration ? state.bonus : 0;
       totBen += ben;
       totDan += dan;
       totRestBen += ben - Number(r.advances_bonifico || 0);
-      totRestDan += dan - Number(r.advances_cash || 0);
+      totRestDan += dan + bonus - Number(r.advances_cash || 0);
     }
     return `
       <div class="card" style="padding: var(--space-12) var(--space-16); margin-top: var(--space-8); background: var(--cream-soft);">
@@ -105,13 +117,14 @@ export async function mountBenDan(container, _params, query) {
     const split = state.splits?.[u.id];
     const ben = split ? Number(split.ben_amount) : 0;
     const dan = split ? Number(split.dan_amount) : 0;
+    const bonus = isBonusEligible(u) && !r.needs_configuration ? state.bonus : 0;
     const totale = Number(r.gross_amount || 0);
     const accBonifico = Number(r.advances_bonifico || 0);
     const accCash = Number(r.advances_cash || 0);
     const accTot = accBonifico + accCash;
-    const restTot = totale - accTot;
+    const restTot = (totale + bonus) - accTot;
     const restBen = ben - accBonifico;
-    const restDan = dan - accCash;
+    const restDan = dan + bonus - accCash;
     const splitTot = ben + dan;
     const mismatch = split && Math.abs(splitTot - totale) > 0.01;
     return `
@@ -128,6 +141,10 @@ export async function mountBenDan(container, _params, query) {
           ${cell('Ben',      `€ ${fmt(ben)}`,  '#2980b9')}
           ${cell('Dan',      `€ ${fmt(dan)}`,  'var(--terracotta)')}
         </div>
+        ${bonus > 0 ? `
+        <div style="margin-top: var(--space-8); padding-top: var(--space-8); border-top: 1px solid var(--border-soft);">
+          ${cell('Bonus incasso del mese', `+ € ${fmt(bonus)}`, 'var(--terracotta)')}
+        </div>` : ''}
         <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-8) var(--space-12); margin-top: var(--space-8); padding-top: var(--space-8); border-top: 1px solid var(--border-soft);">
           ${cell('Acconti bonifico', `− € ${fmt(accBonifico)}`, 'var(--ink-muted)')}
           ${cell('Acconti contanti', `− € ${fmt(accCash)}`,     'var(--ink-muted)')}
