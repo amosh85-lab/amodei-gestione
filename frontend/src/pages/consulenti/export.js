@@ -71,7 +71,10 @@ export async function mountConsulentiExport(container, _params, query) {
         const dan = computable ? (totale + bonus) - (ben + tips) : null;
         const accBonifico = Number(r.advances_bonifico) || 0;
         const accCash = Number(r.advances_cash) || 0;
-        const benDue = computable ? ben - accBonifico : null;
+        // Ben (manuale) e gli acconti non dipendono dalla tariffa configurata:
+        // "Ben da dare" resta calcolabile anche se il dipendente non ha
+        // hourly_rate/monthly_salary impostato (Dan invece sì, serve il lordo).
+        const benDue = ben - accBonifico;
         const danDue = computable ? dan - accCash : null;
         const leave = leavesByUser[r.user.id] || { ferie: 0, malattia: 0 };
         return {
@@ -134,9 +137,11 @@ export async function mountConsulentiExport(container, _params, query) {
   }
 
   function buildConsulenteText() {
+    // Ferie/malattia/mancia non dipendono dalla tariffa configurata: si
+    // mostrano sempre, anche per un dipendente senza hourly_rate/
+    // monthly_salary impostato.
     const lines = [`PER CONSULENTE — ${state.monthLabel}`, ''];
     for (const r of state.rows) {
-      if (!r.computable) { lines.push(`${r.name}: tariffa non configurata`); continue; }
       const parts = [];
       if (r.ferieCount > 0) parts.push(`${r.ferieCount} ${r.ferieCount === 1 ? 'giorno' : 'giorni'} di ferie`);
       parts.push(`Mancia € ${fmt(r.tips)}`);
@@ -149,18 +154,17 @@ export async function mountConsulentiExport(container, _params, query) {
   function buildAmosText() {
     const lines = [`PER AMOS — ${state.monthLabel}`, ''];
     for (const r of state.rows) {
-      if (!r.computable) { lines.push(`${r.name}: tariffa non configurata`); continue; }
       const parts = [
-        `€ ${fmt(r.totale)} (comprensivo di mancia)`,
+        r.computable ? `€ ${fmt(r.totale)} (comprensivo di mancia)` : 'tariffa non configurata (totale non calcolabile)',
         `Ben € ${fmt(r.ben)}`,
         `Mancia € ${fmt(r.tips)}`,
       ];
       if (r.bonus > 0) parts.push(`Bonus € ${fmt(r.bonus)}`);
-      parts.push(`Dan € ${fmt(r.dan)}`);
+      if (r.computable) parts.push(`Dan € ${fmt(r.dan)}`);
       if (r.accBonifico > 0) parts.push(`Acconto bonifico già dato € ${fmt(r.accBonifico)}`);
       if (r.accCash > 0) parts.push(`Acconto contanti già dato € ${fmt(r.accCash)}`);
       parts.push(`Ben da dare € ${fmt(r.benDue)}`);
-      parts.push(`Dan da dare € ${fmt(r.danDue)}`);
+      if (r.computable) parts.push(`Dan da dare € ${fmt(r.danDue)}`);
       lines.push(`${r.name}: ${parts.join(' - ')}`);
     }
     return lines.join('\n');
