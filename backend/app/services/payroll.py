@@ -102,7 +102,19 @@ def _rate_segments(session: Session, user: User, first: date_type, last: date_ty
         cursor = change.effective_from
         current = change
     segments.append(_RateSegment(cursor, last, current.pay_type, current.hourly_rate, current.monthly_salary))
-    return segments
+
+    # Fonde segmenti consecutivi con la stessa tariffa (es. baseline e la
+    # prima "change" sono spesso la stessa riga di storico, es. quando
+    # viene usata come fallback — vedi sopra): evita di mostrare due volte
+    # la stessa tariffa spezzata a metà senza un vero cambio.
+    merged: list[_RateSegment] = []
+    for seg in segments:
+        if merged and (merged[-1].pay_type, merged[-1].hourly_rate, merged[-1].monthly_salary) == \
+                       (seg.pay_type, seg.hourly_rate, seg.monthly_salary):
+            merged[-1] = _RateSegment(merged[-1].start, seg.end, seg.pay_type, seg.hourly_rate, seg.monthly_salary)
+        else:
+            merged.append(seg)
+    return merged
 
 
 def calculate_user_weekly_summary(
@@ -352,6 +364,11 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
             "has_unsettled_advances": unsettled_count > 0,
             "needs_configuration": needs_config,
             "weekly_breakdown": weekly_rows,
+            # Tariffa/e EFFETTIVAMENTE usate per calcolare gross_amount in
+            # questo mese (può differire dalla tariffa CORRENTE di u, se
+            # è cambiata dopo — vedi _rate_segments). Il frontend la usa
+            # per mostrare "tariffa applicata" invece del campo corrente.
+            "rate_segments": segments,
         })
 
         totals["hours"] += total_hours
