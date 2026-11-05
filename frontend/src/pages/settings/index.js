@@ -337,33 +337,49 @@ export async function mountSettings(container, _params, _query) {
         <hr style="border: none; border-top: 1px solid var(--border-soft); margin: var(--space-8) 0;">
         <p class="muted text-xs" style="margin: 0 0 var(--space-4) 0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">Compenso (admin)</p>
         <p class="muted text-xs" style="margin: 0 0 var(--space-8) 0;">Visibile solo agli admin, usato per il calcolo dello stipendio mensile.</p>
+        ${isNew ? `
         <div>
           <label class="label" style="margin:0;">Tipo compenso</label>
           <div style="display: flex; gap: var(--space-8); margin-top: var(--space-4);">
             <label style="display: flex; align-items: center; gap: var(--space-4); cursor: pointer;">
-              <input type="radio" name="u-paytype" value="hourly" ${(user?.pay_type || 'hourly') === 'hourly' ? 'checked' : ''}>
+              <input type="radio" name="u-paytype" value="hourly" checked>
               <span>A ore</span>
             </label>
             <label style="display: flex; align-items: center; gap: var(--space-4); cursor: pointer;">
-              <input type="radio" name="u-paytype" value="fixed" ${user?.pay_type === 'fixed' ? 'checked' : ''}>
+              <input type="radio" name="u-paytype" value="fixed">
               <span>Fisso mensile</span>
             </label>
           </div>
         </div>
-        <div id="u-hourly-fields" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); ${user?.pay_type === 'fixed' ? 'display:none;' : ''}">
+        <div id="u-hourly-fields" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8);">
           <div>
             <label class="label" for="u-rate" style="margin:0;">Tariffa €/h</label>
-            <input type="number" id="u-rate" class="input" step="0.01" min="0" placeholder="es. 10,00" value="${user?.hourly_rate != null ? Number(user.hourly_rate).toFixed(2) : ''}">
+            <input type="number" id="u-rate" class="input" step="0.01" min="0" placeholder="es. 10,00">
           </div>
           <div>
             <label class="label" for="u-contract" style="margin:0;">Ore/sett. contratto</label>
-            <input type="number" id="u-contract" class="input" step="0.25" min="0" max="168" placeholder="es. 40" value="${user?.weekly_hours_contract != null ? Number(user.weekly_hours_contract) : ''}">
+            <input type="number" id="u-contract" class="input" step="0.25" min="0" max="168" placeholder="es. 40">
           </div>
         </div>
-        <div id="u-fixed-fields" style="${user?.pay_type === 'fixed' ? '' : 'display:none;'}">
+        <div id="u-fixed-fields" style="display:none;">
           <label class="label" for="u-salary" style="margin:0;">Stipendio mensile €</label>
-          <input type="number" id="u-salary" class="input" step="0.01" min="0" placeholder="es. 1200,00" value="${user?.monthly_salary != null ? Number(user.monthly_salary).toFixed(2) : ''}">
+          <input type="number" id="u-salary" class="input" step="0.01" min="0" placeholder="es. 1200,00">
         </div>
+        ` : `
+        <div class="card" style="padding: var(--space-12); background: var(--cream-soft);">
+          <p style="margin:0; font-weight: 600;">${user.pay_type === 'fixed'
+            ? `€ ${user.monthly_salary != null ? Number(user.monthly_salary).toFixed(2).replace('.', ',') : '—'} / mese`
+            : `€ ${user.hourly_rate != null ? Number(user.hourly_rate).toFixed(2).replace('.', ',') : '—'} / ora`}</p>
+          <p class="muted text-xs" style="margin: 2px 0 0 0;">Tariffa corrente. Per cambiarla (con data da cui vale, e storico) usa il bottone sotto.</p>
+        </div>
+        <button type="button" id="u-pay-history" class="btn btn--secondary full-width" style="margin-top: var(--space-8);">
+          ${icon('clock', { size: 16 })} Storico e modifica compenso
+        </button>
+        <div>
+          <label class="label" for="u-contract" style="margin:0;">Ore/sett. contratto</label>
+          <input type="number" id="u-contract" class="input" step="0.25" min="0" max="168" placeholder="es. 40" value="${user?.weekly_hours_contract != null ? Number(user.weekly_hours_contract) : ''}">
+        </div>
+        `}
       </div>
     `;
     showModal(
@@ -381,17 +397,17 @@ export async function mountSettings(container, _params, _query) {
             const password = document.getElementById('u-password').value;
             if (!fullName || !role) { showToast('Nome e ruolo obbligatori', 'warn'); return; }
             try {
-              const payType = document.querySelector('input[name="u-paytype"]:checked')?.value || 'hourly';
-              const rateRaw = document.getElementById('u-rate').value.trim();
               const contractRaw = document.getElementById('u-contract').value.trim();
-              const salaryRaw = document.getElementById('u-salary').value.trim();
-              const hourlyRate = rateRaw === '' ? null : parseNumberInput(rateRaw);
               const weeklyHoursContract = contractRaw === '' ? null : parseNumberInput(contractRaw);
-              const monthlySalary = salaryRaw === '' ? null : parseNumberInput(salaryRaw);
               if (isNew) {
                 const email = document.getElementById('u-email').value.trim().toLowerCase();
                 if (!email) { showToast('Email obbligatoria', 'warn'); return; }
                 if (!password || password.length < 8) { showToast('Password min. 8 caratteri', 'warn'); return; }
+                const payType = document.querySelector('input[name="u-paytype"]:checked')?.value || 'hourly';
+                const rateRaw = document.getElementById('u-rate').value.trim();
+                const salaryRaw = document.getElementById('u-salary').value.trim();
+                const hourlyRate = rateRaw === '' ? null : parseNumberInput(rateRaw);
+                const monthlySalary = salaryRaw === '' ? null : parseNumberInput(salaryRaw);
                 const payload = { email, full_name: fullName, role, password, pay_type: payType };
                 if (hourlyRate !== null) payload.hourly_rate = hourlyRate.toFixed(2);
                 if (monthlySalary !== null) payload.monthly_salary = monthlySalary.toFixed(2);
@@ -400,9 +416,7 @@ export async function mountSettings(container, _params, _query) {
                 showToast('Utente creato', 'success');
               } else {
                 const active = document.getElementById('u-active').checked;
-                const body = { full_name: fullName, role, active, pay_type: payType,
-                                hourly_rate: hourlyRate !== null ? hourlyRate.toFixed(2) : null,
-                                monthly_salary: monthlySalary !== null ? monthlySalary.toFixed(2) : null,
+                const body = { full_name: fullName, role, active,
                                 weekly_hours_contract: weeklyHoursContract !== null ? weeklyHoursContract.toFixed(2) : null };
                 if (password) {
                   if (password.length < 8) { showToast('Password min. 8 caratteri', 'warn'); return; }
@@ -420,7 +434,8 @@ export async function mountSettings(container, _params, _query) {
         },
       ],
     );
-    // Wire pay-type radio toggle
+    // Wire pay-type radio toggle (solo nuovo utente — in modifica il
+    // compenso si cambia da "Storico e modifica compenso")
     document.querySelectorAll('input[name="u-paytype"]').forEach((r) => {
       r.addEventListener('change', () => {
         const isFixed = r.value === 'fixed';
@@ -430,6 +445,147 @@ export async function mountSettings(container, _params, _query) {
         if (fixedEl) fixedEl.style.display = isFixed ? '' : 'none';
       });
     });
+    const payHistoryBtn = document.getElementById('u-pay-history');
+    if (payHistoryBtn) payHistoryBtn.addEventListener('click', () => {
+      document.querySelectorAll('.modal-backdrop').forEach((bd) => bd.remove());
+      openPayRateHistoryModal(user);
+    });
+  }
+
+  async function openPayRateHistoryModal(user) {
+    let history = [];
+    try {
+      history = await apiGet(`/pay-rate-history?user_id=${user.id}`);
+    } catch (err) {
+      showToast(err.message || 'Errore caricamento storico', 'danger', 5000);
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const body = `
+      <p class="muted text-sm" style="margin: 0 0 var(--space-12) 0;">${escapeHtml(user.full_name)}</p>
+
+      <div id="prh-list" style="margin-bottom: var(--space-16);">${renderHistoryList(history)}</div>
+
+      <hr style="border: none; border-top: 1px solid var(--border-soft); margin: var(--space-8) 0 var(--space-12) 0;">
+      <p class="muted text-xs" style="margin: 0 0 var(--space-8) 0; text-transform: uppercase; letter-spacing: var(--letter-spacing-wide);">Aggiungi modifica</p>
+      <div style="display: grid; gap: var(--space-8);">
+        <div>
+          <label class="label" style="margin:0;">Tipo compenso</label>
+          <div style="display: flex; gap: var(--space-8); margin-top: var(--space-4);">
+            <label style="display: flex; align-items: center; gap: var(--space-4); cursor: pointer;">
+              <input type="radio" name="prh-paytype" value="hourly" ${user.pay_type !== 'fixed' ? 'checked' : ''}>
+              <span>A ore</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: var(--space-4); cursor: pointer;">
+              <input type="radio" name="prh-paytype" value="fixed" ${user.pay_type === 'fixed' ? 'checked' : ''}>
+              <span>Fisso mensile</span>
+            </label>
+          </div>
+        </div>
+        <div id="prh-hourly-fields" style="${user.pay_type === 'fixed' ? 'display:none;' : ''}">
+          <label class="label" for="prh-rate" style="margin:0;">Tariffa €/h</label>
+          <input type="number" id="prh-rate" class="input" step="0.01" min="0" placeholder="es. 10,00" value="${user.hourly_rate != null ? Number(user.hourly_rate).toFixed(2) : ''}">
+        </div>
+        <div id="prh-fixed-fields" style="${user.pay_type === 'fixed' ? '' : 'display:none;'}">
+          <label class="label" for="prh-salary" style="margin:0;">Stipendio mensile €</label>
+          <input type="number" id="prh-salary" class="input" step="0.01" min="0" placeholder="es. 1200,00" value="${user.monthly_salary != null ? Number(user.monthly_salary).toFixed(2) : ''}">
+        </div>
+        <div>
+          <label class="label label--required" for="prh-date" style="margin:0;">Valida dal</label>
+          <input type="date" id="prh-date" class="input" value="${today}">
+          <p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">Oggi per un cambio immediato, una data passata per correggere con effetto retroattivo, una futura per programmarla.</p>
+        </div>
+        <div>
+          <label class="label" for="prh-notes" style="margin:0;">Nota (opzionale)</label>
+          <input type="text" id="prh-notes" class="input" maxlength="500" placeholder="es. aumento concordato">
+        </div>
+      </div>
+    `;
+    showModal('Storico compenso', body, [
+      { label: 'Chiudi', variant: 'ghost' },
+      {
+        label: 'Aggiungi modifica',
+        variant: 'primary',
+        closeOnClick: false,
+        onClick: async () => {
+          const payType = document.querySelector('input[name="prh-paytype"]:checked')?.value || 'hourly';
+          const dateVal = document.getElementById('prh-date').value;
+          const notes = document.getElementById('prh-notes').value.trim();
+          const rateRaw = document.getElementById('prh-rate').value.trim();
+          const salaryRaw = document.getElementById('prh-salary').value.trim();
+          if (!dateVal) { showToast('La data è obbligatoria', 'warn'); return; }
+          const payload = { user_id: user.id, effective_from: dateVal, pay_type: payType, notes: notes || null };
+          if (payType === 'fixed') {
+            const salary = salaryRaw === '' ? null : parseNumberInput(salaryRaw);
+            if (salary === null || Number.isNaN(salary) || salary < 0) { showToast('Stipendio mensile non valido', 'warn'); return; }
+            payload.monthly_salary = salary.toFixed(2);
+          } else {
+            const rate = rateRaw === '' ? null : parseNumberInput(rateRaw);
+            if (rate === null || Number.isNaN(rate) || rate < 0) { showToast('Tariffa oraria non valida', 'warn'); return; }
+            payload.hourly_rate = rate.toFixed(2);
+          }
+          try {
+            await apiPost('/pay-rate-history', payload);
+            showToast('Modifica di compenso salvata', 'success');
+            document.querySelectorAll('.modal-backdrop').forEach((bd) => bd.remove());
+            await load();
+            const refreshed = state.users.find((u) => u.id === user.id);
+            openPayRateHistoryModal(refreshed || user);
+          } catch (err) {
+            const msg = err instanceof ApiError && err.message ? err.message : 'Errore salvataggio';
+            showToast(msg, 'danger', 5000);
+          }
+        },
+      },
+    ]);
+    document.querySelectorAll('input[name="prh-paytype"]').forEach((r) => {
+      r.addEventListener('change', () => {
+        const isFixed = r.value === 'fixed';
+        document.getElementById('prh-hourly-fields').style.display = isFixed ? 'none' : '';
+        document.getElementById('prh-fixed-fields').style.display = isFixed ? '' : 'none';
+      });
+    });
+    document.querySelectorAll('[data-prh-delete]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const ok = await confirmDialog('Eliminare questa voce di storico?', "L'azione è irreversibile.", { confirmLabel: 'Elimina', danger: true });
+        if (!ok) return;
+        try {
+          await apiDelete(`/pay-rate-history/${b.dataset.prhDelete}`);
+          showToast('Voce eliminata', 'success');
+          document.querySelectorAll('.modal-backdrop').forEach((bd) => bd.remove());
+          await load();
+          const refreshed = state.users.find((u) => u.id === user.id);
+          openPayRateHistoryModal(refreshed || user);
+        } catch (err) {
+          showToast(err.message || 'Errore', 'danger', 5000);
+        }
+      });
+    });
+  }
+
+  function renderHistoryList(history) {
+    if (history.length === 0) {
+      return `<p class="muted text-sm" style="margin:0;">Nessuna modifica registrata: la tariffa attuale è quella impostata alla creazione dell'utente.</p>`;
+    }
+    return `
+      <div class="card" style="padding: 0;">
+        ${history.map((h, i) => `
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-8); padding: var(--space-8) var(--space-12); ${i > 0 ? 'border-top: 1px solid var(--border-soft);' : ''}">
+            <div style="min-width: 0;">
+              <p style="margin:0; font-weight: 500;">dal ${formatDateIt(h.effective_from)}</p>
+              <p class="muted text-xs" style="margin: 2px 0 0 0;">
+                ${h.pay_type === 'fixed'
+                  ? `€ ${Number(h.monthly_salary).toFixed(2).replace('.', ',')}/mese`
+                  : `€ ${Number(h.hourly_rate).toFixed(2).replace('.', ',')}/h`}
+                ${h.notes ? ` · ${escapeHtml(h.notes)}` : ''}
+              </p>
+            </div>
+            <button type="button" data-prh-delete="${h.id}" class="btn btn--ghost btn--icon" aria-label="Elimina">${icon('trash', { size: 14 })}</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
   }
 
   function openEditFloat() {
@@ -518,6 +674,11 @@ function formatMoney(v) {
   const n = Number(v);
   if (Number.isNaN(n)) return '0,00';
   return n.toFixed(2).replace('.', ',');
+}
+
+function formatDateIt(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
 }
 
 function escapeHtml(s) {
