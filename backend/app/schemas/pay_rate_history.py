@@ -33,5 +33,9 @@ class PayRateHistoryOut(BaseModel):
     hourly_rate: Decimal | None = None
     monthly_salary: Decimal | None = None
     notes: str | None = None
-    created_by: UserMini
+    # Default None: l'oggetto ORM PayRateHistory non ha un attributo
+    # `created_by` (solo `created_by_user_id`), quindi senza un default
+    # qui model_validate(row) fallisce con "Field required" prima che
+    # _hydrate() nel router riesca a impostarlo dal lookup separato.
+    created_by: UserMini | None = None
     created_at: datetime
