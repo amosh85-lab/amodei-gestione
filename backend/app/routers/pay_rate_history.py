@@ -8,6 +8,7 @@ recente non futura — vedi services/pay_rate.py.
 from __future__ import annotations
 
 import logging
+from datetime import date as date_type
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -76,6 +77,28 @@ def create_pay_rate_history(
     if payload.pay_type == "hourly" and payload.hourly_rate is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
                             "A ore: la tariffa oraria è obbligatoria.")
+
+    # Se questa è la PRIMA voce di storico in assoluto per l'utente, la
+    # tariffa che aveva FINO AD ORA (quella corrente, prima di essere
+    # sovrascritta da sync_current_rate più sotto) non è registrata da
+    # nessuna parte: senza questo backfill sparirebbe sia dalla lista
+    # sia — più grave — dal calcolo busta paga dei mesi passati, che
+    # altrimenti ricadrebbe sulla tariffa NUOVA come fallback.
+    has_history = session.scalar(
+        select(PayRateHistory.id).where(PayRateHistory.user_id == payload.user_id).limit(1)
+    ) is not None
+    if not has_history and (target.hourly_rate is not None or target.monthly_salary is not None):
+        backfill_date = target.created_at.date() if target.created_at else date_type(2024, 1, 1)
+        if backfill_date < payload.effective_from:
+            session.add(PayRateHistory(
+                user_id=payload.user_id,
+                effective_from=backfill_date,
+                pay_type=target.pay_type,
+                hourly_rate=target.hourly_rate,
+                monthly_salary=target.monthly_salary,
+                notes="Tariffa precedente a questa modifica (aggiunta automaticamente per completare lo storico).",
+                created_by_user_id=actor.id,
+            ))
 
     row = session.scalar(
         select(PayRateHistory)
