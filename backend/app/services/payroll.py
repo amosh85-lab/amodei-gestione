@@ -78,9 +78,13 @@ def _rate_segments(session: Session, user: User, first: date_type, last: date_ty
         return [_RateSegment(first, last, user.pay_type, user.hourly_rate, user.monthly_salary)]
 
     # baseline = l'ultima riga con effective_from <= first (tariffa già in
-    # vigore all'inizio del mese); se nessuna riga copre l'inizio mese,
-    # usa la tariffa corrente dell'utente come baseline.
-    baseline = user
+    # vigore all'inizio del mese). Se NESSUNA riga copre l'inizio mese (es.
+    # la prima riga di storico per questo utente è stata inserita con una
+    # data dentro il mese, non all'inizio), il fallback NON deve essere la
+    # tariffa CORRENTE dell'utente: quella è spesso la più recente e quindi
+    # sbagliata per un mese passato. Si usa invece la riga più vecchia tra
+    # quelle note, assumendo che quella tariffa valesse già da prima.
+    baseline = min(rows, key=lambda r: r.effective_from)
     changes = []
     for r in rows:
         if r.effective_from <= first:
