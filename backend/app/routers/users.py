@@ -7,6 +7,7 @@ data (movements, alerts, summaries) keep resolving.
 from __future__ import annotations
 
 import logging
+from datetime import date as date_type
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -14,9 +15,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_session
 from app.dependencies.auth import get_current_user, require_admin
+from app.models.pay_rate_history import PayRateHistory
 from app.models.users import User, UserRole
 from app.schemas.users import UserCreate, UserMini, UserOutAdmin, UserUpdate
 from app.services.auth import hash_password
+from app.services.pay_rate import sync_all_current_rates
 
 router = APIRouter(prefix="/users", tags=["users"])
 logger = logging.getLogger("amodei.users")
@@ -34,6 +37,10 @@ def list_users(
     We serialize manually so non-admin callers never even see those keys
     in the JSON.
     """
+    if actor.role == UserRole.admin:
+        # Attiva da sola una modifica di compenso programmata con data
+        # futura, appena quella data arriva e un admin apre questa lista.
+        sync_all_current_rates(session)
     stmt = select(User).order_by(User.full_name.asc())
     if not include_inactive:
         stmt = stmt.where(User.active.is_(True))
@@ -65,6 +72,20 @@ def create_user(
         weekly_hours_contract=payload.weekly_hours_contract,
     )
     session.add(new_user)
+    session.flush()
+    # Seed dello storico compensi: così da subito risulta QUANDO è partita
+    # questa tariffa, e le modifiche successive si aggiungono con PATCH
+    # /pay-rate-history invece di sovrascrivere senza traccia.
+    if payload.hourly_rate is not None or payload.monthly_salary is not None:
+        session.add(PayRateHistory(
+            user_id=new_user.id,
+            effective_from=date_type.today(),
+            pay_type=payload.pay_type,
+            hourly_rate=payload.hourly_rate,
+            monthly_salary=payload.monthly_salary,
+            notes="Tariffa iniziale, impostata alla creazione dell'utente.",
+            created_by_user_id=actor.id,
+        ))
     session.commit()
     session.refresh(new_user)
     logger.info("User created: id=%d email=%s role=%s by_admin=%d",
@@ -104,15 +125,6 @@ def update_user(
     if "active" in changes and changes["active"] is not None:
         target.active = changes["active"]
         del changes["active"]
-    if "pay_type" in changes and changes["pay_type"] is not None:
-        target.pay_type = changes["pay_type"]
-        del changes["pay_type"]
-    if "hourly_rate" in changes:
-        target.hourly_rate = changes["hourly_rate"]
-        del changes["hourly_rate"]
-    if "monthly_salary" in changes:
-        target.monthly_salary = changes["monthly_salary"]
-        del changes["monthly_salary"]
     if "weekly_hours_contract" in changes:
         target.weekly_hours_contract = changes["weekly_hours_contract"]
         del changes["weekly_hours_contract"]

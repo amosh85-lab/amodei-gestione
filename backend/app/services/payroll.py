@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.cash import EmployeeAdvance
+from app.models.pay_rate_history import PayRateHistory
 from app.models.shift_tips import ShiftTip
 from app.models.users import PayType, User, UserRole
 from app.models.work_shifts import WorkShift
@@ -49,6 +50,55 @@ def _month_bounds(year: int, month: int) -> tuple[date_type, date_type]:
     first = date_type(year, month, 1)
     last_day = calendar.monthrange(year, month)[1]
     return first, date_type(year, month, last_day)
+
+
+@dataclass
+class _RateSegment:
+    start: date_type
+    end: date_type
+    pay_type: PayType
+    hourly_rate: Decimal | None
+    monthly_salary: Decimal | None
+
+
+def _rate_segments(session: Session, user: User, first: date_type, last: date_type) -> list[_RateSegment]:
+    """Divide [first, last] in sotto-periodi secondo PayRateHistory, così
+    una modifica di tariffa a metà mese paga ogni sotto-periodo con la
+    tariffa giusta. Senza storico per questo utente (il caso comune, per
+    chi non ha mai usato "Modifica compenso con data") → un solo segmento
+    con la tariffa CORRENTE dell'utente, esattamente come prima di questa
+    funzione esistere."""
+    rows = list(session.scalars(
+        select(PayRateHistory)
+        .where(PayRateHistory.user_id == user.id)
+        .where(PayRateHistory.effective_from <= last)
+        .order_by(PayRateHistory.effective_from.asc())
+    ))
+    if not rows:
+        return [_RateSegment(first, last, user.pay_type, user.hourly_rate, user.monthly_salary)]
+
+    # baseline = l'ultima riga con effective_from <= first (tariffa già in
+    # vigore all'inizio del mese); se nessuna riga copre l'inizio mese,
+    # usa la tariffa corrente dell'utente come baseline.
+    baseline = user
+    changes = []
+    for r in rows:
+        if r.effective_from <= first:
+            baseline = r
+        else:
+            changes.append(r)
+
+    segments: list[_RateSegment] = []
+    cursor = first
+    current = baseline
+    for change in changes:
+        seg_end = change.effective_from - timedelta(days=1)
+        if seg_end >= cursor:
+            segments.append(_RateSegment(cursor, seg_end, current.pay_type, current.hourly_rate, current.monthly_salary))
+        cursor = change.effective_from
+        current = change
+    segments.append(_RateSegment(cursor, last, current.pay_type, current.hourly_rate, current.monthly_salary))
+    return segments
 
 
 def calculate_user_weekly_summary(
@@ -210,13 +260,46 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
 
         # Lordo / netto: dipende dal tipo di compenso. Le mance NON entrano
         # nel lordo (non sono ore × tariffa) ma si sommano nel netto da
-        # consegnare.
-        is_fixed = u.pay_type == PayType.fixed
-        if is_fixed and u.monthly_salary is not None:
-            gross = _q2(u.monthly_salary)
-            net = _q2(gross + tips_total - adv_for_month)
-        elif not is_fixed and u.hourly_rate is not None:
-            gross = _q2(total_hours * u.hourly_rate)
+        # consegnare. Se la tariffa è cambiata a metà mese (PayRateHistory),
+        # ogni sotto-periodo paga con la tariffa in vigore in quei giorni:
+        # a ore → ore di quel sotto-periodo × tariffa di quel sotto-periodo;
+        # fisso → stipendio pro-rata sui giorni del sotto-periodo.
+        segments = _rate_segments(session, u, first, last)
+        days_in_month = (last - first).days + 1
+        gross = ZERO
+        computable = True
+        if len(segments) == 1 and segments[0].start == first and segments[0].end == last:
+            # Caso comune (nessuno storico rilevante): stesso calcolo di
+            # sempre, riusando total_hours già calcolato sopra.
+            seg = segments[0]
+            if seg.pay_type == PayType.fixed and seg.monthly_salary is not None:
+                gross = _q2(seg.monthly_salary)
+            elif seg.pay_type != PayType.fixed and seg.hourly_rate is not None:
+                gross = _q2(total_hours * seg.hourly_rate)
+            else:
+                computable = False
+        else:
+            for seg in segments:
+                seg_days = (seg.end - seg.start).days + 1
+                if seg.pay_type == PayType.fixed:
+                    if seg.monthly_salary is None:
+                        computable = False
+                        continue
+                    gross += _q2(seg.monthly_salary * seg_days / days_in_month)
+                else:
+                    if seg.hourly_rate is None:
+                        computable = False
+                        continue
+                    seg_hours = session.scalar(
+                        select(func.coalesce(func.sum(WorkShift.hours), 0))
+                        .where(WorkShift.user_id == u.id)
+                        .where(WorkShift.date >= seg.start)
+                        .where(WorkShift.date <= seg.end)
+                    ) or ZERO
+                    gross += _q2(seg_hours * seg.hourly_rate)
+
+        if computable:
+            gross = _q2(gross)
             net = _q2(gross + tips_total - adv_for_month)
         else:
             gross = None
@@ -248,10 +331,10 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
             })
             wk_monday = wk_monday + timedelta(days=7)
 
-        needs_config = (
-            (is_fixed and u.monthly_salary is None)
-            or (not is_fixed and u.hourly_rate is None)
-        )
+        # Allineato esattamente a "gross is None": con lo storico tariffe,
+        # la tariffa rilevante per il mese può differire da quella corrente
+        # dell'utente, quindi non basta più guardare solo i campi correnti.
+        needs_config = gross is None
         rows.append({
             "user": u,
             "total_hours": total_hours,

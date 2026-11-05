@@ -48,13 +48,15 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    """Admin patches an existing user. All fields optional."""
+    """Admin patches an existing user. All fields optional.
+
+    pay_type/hourly_rate/monthly_salary NON si modificano più da qui: vanno
+    sempre tramite POST /pay-rate-history (con la data da cui valgono), così
+    si mantiene lo storico. Questo endpoint resta per nome/ruolo/attivo/
+    password/ore contratto."""
 
     full_name: str | None = Field(default=None, min_length=1, max_length=160)
     role: UserRole | None = None
     active: bool | None = None
     password: str | None = Field(default=None, min_length=8, max_length=128)
-    pay_type: PayType | None = None
-    hourly_rate: Decimal | None = Field(default=None, ge=0)
-    monthly_salary: Decimal | None = Field(default=None, ge=0)
     weekly_hours_contract: Decimal | None = Field(default=None, ge=0, le=168)

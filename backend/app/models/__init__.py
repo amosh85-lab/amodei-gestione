@@ -60,6 +60,7 @@ from app.models.work_shifts import WorkShift
 from app.models.shift_tips import ShiftTip
 from app.models.payroll_split import PayrollSplit
 from app.models.day_leave import DayLeave, DayLeaveKind
+from app.models.pay_rate_history import PayRateHistory
 
 __all__ = [
     # base
@@ -128,4 +129,6 @@ __all__ = [
     # day leaves
     "DayLeave",
     "DayLeaveKind",
+    # pay rate history
+    "PayRateHistory",
 ]
