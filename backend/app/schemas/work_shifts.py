@@ -112,6 +112,18 @@ class WeeklyBreakdownRow(BaseModel):
     overtime: Decimal
 
 
+class RateSegmentOut(BaseModel):
+    """Tariffa effettivamente in vigore in [start, end] per il calcolo del
+    mese — vedi services/payroll.py:_rate_segments. Più di un elemento solo
+    se la tariffa è cambiata durante il mese richiesto."""
+    model_config = ConfigDict(from_attributes=True)
+    start: date_type
+    end: date_type
+    pay_type: str
+    hourly_rate: Decimal | None = None
+    monthly_salary: Decimal | None = None
+
+
 class _UserMiniWithRate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -138,6 +150,7 @@ class MonthlyPayrollByUser(BaseModel):
     has_unsettled_advances: bool
     needs_configuration: bool                 # true se hourly_rate is None
     weekly_breakdown: list[WeeklyBreakdownRow]
+    rate_segments: list[RateSegmentOut] = []
 
 
 class MonthlyPayrollTotals(BaseModel):

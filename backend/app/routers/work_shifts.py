@@ -27,6 +27,7 @@ from app.schemas.users import UserMini
 from app.schemas.work_shifts import (
     MonthlyPayrollByUser,
     MonthlyPayrollTotals,
+    RateSegmentOut,
     SettleAdvancesResult,
     WeeklyBreakdownRow,
     WorkShiftBulkCreate,
@@ -302,6 +303,7 @@ def monthly_payroll(
             has_unsettled_advances=row["has_unsettled_advances"],
             needs_configuration=row["needs_configuration"],
             weekly_breakdown=[WeeklyBreakdownRow(**wk) for wk in row["weekly_breakdown"]],
+            rate_segments=[RateSegmentOut.model_validate(seg) for seg in row["rate_segments"]],
         ) for row in data["by_user"]],
         totals=MonthlyPayrollTotals(**data["totals"]),
     )

@@ -159,12 +159,17 @@ export async function mountPayrollDashboard(container, _params, query) {
       : Number(r.advances_settled_in_month) > 0
         ? `<span class="badge" style="background: rgba(79,142,58,0.15); color: var(--bottle-green, #4f8e3a); margin-left: var(--space-8);">✓ Saldati</span>`
         : '';
+    // Tariffa EFFETTIVAMENTE applicata in questo mese (r.rate_segments, da
+    // PayRateHistory) — non quella corrente dell'utente, che può essere già
+    // cambiata rispetto a quella usata per calcolare r.gross_amount.
+    const appliedRate = formatRateSegments(r.rate_segments);
     const rateLabel = isFixed
-      ? `Fisso mensile: € ${fmt(u.monthly_salary)}`
-      : `Tariffa: € ${fmt(u.hourly_rate)}/h${u.weekly_hours_contract ? ` · Contratto: ${formatHours(u.weekly_hours_contract)}h/sett` : ''}`;
+      ? `Fisso mensile: ${appliedRate || `€ ${fmt(u.monthly_salary)}`}`
+      : `Tariffa: ${appliedRate || `€ ${fmt(u.hourly_rate)}/h`}${u.weekly_hours_contract ? ` · Contratto: ${formatHours(u.weekly_hours_contract)}h/sett` : ''}`;
+    const singleHourlyRate = r.rate_segments && r.rate_segments.length === 1 ? r.rate_segments[0].hourly_rate : u.hourly_rate;
     const grossLabel = isFixed
       ? `Fisso mensile`
-      : `Lordo (${formatHours(r.total_hours)} × ${fmt(u.hourly_rate)})`;
+      : `Lordo (${formatHours(r.total_hours)} × ${fmt(singleHourlyRate)})`;
     // Bonus manager: la voce "Lordo (X h × Y)" mostra il lordo CON bonus
     // incluso (vedi applyManagerBonus); separiamo la riga bonus per chiarezza.
     const hasBonus = Number(r.bonus_amount) > 0;
@@ -366,6 +371,18 @@ function formatHours(v) {
   const n = Number(v);
   if (Number.isNaN(n)) return '0';
   return n % 1 === 0 ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+function formatDateShort(iso) { const [, m, d] = iso.split('-'); return `${d}/${m}`; }
+
+// r.rate_segments (da /work-shifts/monthly-payroll): la tariffa
+// EFFETTIVAMENTE usata per calcolare gross_amount in questo mese — può
+// differire dalla tariffa corrente dell'utente se è cambiata dopo. Più di
+// un segmento solo se la tariffa è cambiata durante il mese.
+function formatRateSegments(segments) {
+  if (!segments || segments.length === 0) return null;
+  const label = (s) => s.pay_type === 'fixed' ? `€ ${fmt(s.monthly_salary)}/mese` : `€ ${fmt(s.hourly_rate)}/h`;
+  if (segments.length === 1) return label(segments[0]);
+  return segments.map((s) => `${label(s)} (${formatDateShort(s.start)}–${formatDateShort(s.end)})`).join(' · ');
 }
 function escapeHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

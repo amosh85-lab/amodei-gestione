@@ -44,9 +44,13 @@ export async function mountPayrollUserDetail(container, params, query) {
   const totalHours = Number(r.total_hours);
   const isFixed = u.pay_type === 'fixed';
 
-  const rateInfo = isFixed
-    ? (u.monthly_salary != null ? `<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">Fisso mensile: € ${fmt(u.monthly_salary)}</p>` : '<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">⚠ Stipendio mensile non configurato</p>')
-    : (u.hourly_rate != null ? `<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">Tariffa: € ${fmt(u.hourly_rate)}/h${u.weekly_hours_contract ? ` · Contratto: ${formatHours(u.weekly_hours_contract)}h/sett` : ''}</p>` : '<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">⚠ Nessuna tariffa configurata</p>');
+  // Tariffa EFFETTIVAMENTE applicata in questo mese (r.rate_segments, da
+  // PayRateHistory) — NON la tariffa corrente dell'utente (u.hourly_rate),
+  // che può essere già cambiata rispetto a quella usata per questo mese.
+  const rateLabel = formatRateSegments(r.rate_segments);
+  const rateInfo = rateLabel
+    ? `<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">Tariffa: ${rateLabel}${!isFixed && u.weekly_hours_contract ? ` · Contratto: ${formatHours(u.weekly_hours_contract)}h/sett` : ''}</p>`
+    : '<p class="muted text-sm" style="margin: var(--space-8) 0 0 0;">⚠ Nessuna tariffa configurata per questo mese</p>';
 
   const tipsRow = Number(r.tips_total) > 0
     ? `<div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Mance POS del mese</span><span style="font-family: var(--font-display); color: var(--bottle-green, #4f8e3a);">+ € ${fmt(r.tips_total)}</span></div>`
@@ -60,7 +64,7 @@ export async function mountPayrollUserDetail(container, params, query) {
         <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Acconti mese (ref ${escapeHtml(payrollStr)})</span><span style="font-family: var(--font-display); color: var(--terracotta-dark);">− € ${fmt(r.advances_taken)}</span></div>`
     : `
         <div class="row" style="justify-content: space-between;"><span>Ore totali</span><span style="font-family: var(--font-display);">${formatHours(totalHours)} h</span></div>
-        <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Tariffa applicata</span><span style="font-family: var(--font-display);">€ ${fmt(u.hourly_rate)}/h</span></div>
+        <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Tariffa applicata</span><span style="font-family: var(--font-display);">${rateLabel || '—'}</span></div>
         <div class="row" style="justify-content: space-between; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-soft);"><span>Lordo</span><span style="font-family: var(--font-display);">€ ${fmt(r.gross_amount)}</span></div>
         ${tipsRow}
         <div class="row" style="justify-content: space-between; margin-top: var(--space-4);"><span>Acconti mese (ref ${escapeHtml(payrollStr)})</span><span style="font-family: var(--font-display); color: var(--terracotta-dark);">− € ${fmt(r.advances_taken)}</span></div>`;
@@ -146,6 +150,19 @@ export async function mountPayrollUserDetail(container, params, query) {
 }
 
 function fmt(v) { const n = Number(v); return Number.isNaN(n) ? '0,00' : n.toFixed(2).replace('.', ','); }
+
+// r.rate_segments (da /work-shifts/monthly-payroll): la tariffa
+// EFFETTIVAMENTE usata per calcolare gross_amount in questo mese, che può
+// differire dalla tariffa corrente dell'utente se è cambiata dopo.
+// Più di un segmento solo se la tariffa è cambiata durante il mese.
+function formatRateSegments(segments) {
+  if (!segments || segments.length === 0) return null;
+  const label = (s) => s.pay_type === 'fixed'
+    ? `€ ${fmt(s.monthly_salary)}/mese`
+    : `€ ${fmt(s.hourly_rate)}/h`;
+  if (segments.length === 1) return label(segments[0]);
+  return segments.map((s) => `${label(s)} (${formatDateShort(s.start)}–${formatDateShort(s.end)})`).join(' · ');
+}
 function formatHours(v) {
   const n = Number(v);
   if (Number.isNaN(n)) return '0';
