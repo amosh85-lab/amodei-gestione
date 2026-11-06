@@ -387,6 +387,7 @@ export async function mountCashPage(container, _params, query) {
         <div style="margin-top: var(--space-20); padding-top: var(--space-20); border-top: 1px solid rgba(255,255,255,0.15);">
           ${darkRow('Totale POS', `€ ${formatMoney(s.pos_total || 0)}`, posSub)}
           ${darkRow('Cash fine serata', cashDinnerValue, 'oltre il fondo cassa')}
+          ${darkInputRow('Totale bonifico', s.bonifico_total, 'bonifico_total', 'bonifico')}
         </div>
 
         <!-- Spese di giornata + dettaglio -->
@@ -638,6 +639,7 @@ export async function mountCashPage(container, _params, query) {
       cash_dinner_above_float: 'Cash extra fondo a fine serata',
       fiscal_total:            'Totale fiscale',
       ipratico_total:          'Totale Ipratico',
+      bonifico_total:          'Totale bonifico',
     };
     container.querySelectorAll('[data-summary-field]').forEach((btn) => {
       btn.addEventListener('click', () => {

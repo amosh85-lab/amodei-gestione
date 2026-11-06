@@ -81,14 +81,15 @@ export async function mountStatisticsDashboard(container, _params, query) {
   }
 
   function computeKpi(summaries, expenses) {
-    let totale = 0, pos = 0, contanti = 0;
+    let totale = 0, pos = 0, contanti = 0, bonifico = 0;
     for (const s of summaries) {
       if (s.computed_total != null) totale += Number(s.computed_total);
       pos += Number(s.pos_total || 0);
       if (s.cash_incassato != null) contanti += Number(s.cash_incassato);
+      bonifico += Number(s.bonifico_total || 0);
     }
     const speseTotali = expenses.reduce((acc, e) => acc + Number(e.amount), 0);
-    return { totale, pos, contanti, speseTotali };
+    return { totale, pos, contanti, bonifico, speseTotali };
   }
 
   function renderKpi(kpi) {
@@ -97,6 +98,7 @@ export async function mountStatisticsDashboard(container, _params, query) {
         ${kpiCard('Incasso totale', kpi.totale, 'var(--ink)')}
         ${kpiCard('Incasso POS', kpi.pos, '#2980b9')}
         ${kpiCard('Incasso contanti', kpi.contanti, 'var(--bottle-green, #4f8e3a)')}
+        ${kpiCard('Incasso bonifico', kpi.bonifico, '#8e6fc9')}
         ${kpiCard('Spese totali', kpi.speseTotali, 'var(--terracotta-dark)')}
       </div>
     `;

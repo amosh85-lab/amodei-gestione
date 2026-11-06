@@ -140,6 +140,7 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
     cash_dinner_above = _q(summary_row.cash_dinner_above_float) if summary_row and summary_row.cash_dinner_above_float is not None else None
     fiscal = _q(summary_row.fiscal_total) if summary_row and summary_row.fiscal_total is not None else None
     ipratico = _q(summary_row.ipratico_total) if summary_row and summary_row.ipratico_total is not None else None
+    bonifico = _q(summary_row.bonifico_total) if summary_row and summary_row.bonifico_total is not None else None
 
     # Both cash inputs are CUMULATIVE snapshots above-float (≥ 0):
     #   cash_lunch_above_float  = TUTTO il contante in cassa meno fondo, a fine pranzo
@@ -172,7 +173,7 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
     if cash_lunch_above is not None and cash_dinner_above is not None:
         cash_above_float = cash_dinner_above
         cash_incassato = _q(cash_dinner_above + expenses_total + advances_total)
-        computed_total = _q(pos_total + cash_incassato)
+        computed_total = _q(pos_total + cash_incassato + (bonifico or ZERO))
     else:
         cash_above_float = None
         cash_incassato = None
@@ -213,6 +214,7 @@ def calculate_summary(session: Session, day: date_type) -> DailySummaryOut:
         computed_total=computed_total,
         fiscal_total=fiscal,
         ipratico_total=ipratico,
+        bonifico_total=bonifico,
         delta_fiscal=delta_fiscal,
         delta_ipratico=delta_ipratico,
         delta_fiscal_ipratico=delta_fiscal_ipratico,
