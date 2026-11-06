@@ -17,23 +17,31 @@ export async function mountCashVault(container, _params, _query) {
 
   container.innerHTML = `<div class="container" style="padding-top: var(--space-20);">${skeletonList(4)}</div>`;
 
+  const now = new Date();
   const state = {
     balance: null,
     movements: [],
     loading: true,
+    year: now.getFullYear(),
+    month: now.getMonth(),   // 0-indexed
   };
 
   await load();
   return () => {};
 
+  function monthRange(year, month /* 0-indexed */) {
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month + 1, 0);
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { from: fmt(first), to: fmt(last) };
+  }
+
   async function load() {
     try {
-      const today = new Date();
-      const from = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-      // Mese corrente (movimenti): se l'utente vuole vedere oltre, va a pagina filtri (TODO future)
+      const { from, to } = monthRange(state.year, state.month);
       const [balance, movements] = await Promise.all([
         apiGet('/cash-vault/balance?last_n=0'),  // last_n=0: ci pensiamo noi sotto
-        apiGet(`/cash-vault/movements?from=${from}&limit=1000`),
+        apiGet(`/cash-vault/movements?from=${from}&to=${to}&limit=1000`),
       ]);
       state.balance = balance;
       state.movements = movements;
@@ -88,11 +96,15 @@ export async function mountCashVault(container, _params, _query) {
           </button>
         </div>
 
-        <!-- Movimenti del mese corrente -->
+        <!-- Movimenti: storico navigabile mese per mese -->
         <div style="margin-top: var(--space-20);">
-          <p class="card__meta" style="margin: 0 0 var(--space-8) 0;">Movimenti del mese (${state.movements.length})</p>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-8);">
+            <button type="button" data-month-nav="prev" class="btn btn--ghost btn--icon" aria-label="Mese precedente">${icon('chevron-left', { size: 20 })}</button>
+            <p class="card__meta" style="margin: 0; text-transform: capitalize;">${escapeHtml(monthLabel(state.year, state.month))} (${state.movements.length})</p>
+            <button type="button" data-month-nav="next" class="btn btn--ghost btn--icon" aria-label="Mese successivo">${icon('chevron-right', { size: 20 })}</button>
+          </div>
           ${state.movements.length === 0
-            ? `<p class="muted text-sm" style="text-align:center; padding: var(--space-16); background: var(--cream-soft); border-radius: var(--radius-md);">Nessun movimento questo mese.</p>`
+            ? `<p class="muted text-sm" style="text-align:center; padding: var(--space-16); background: var(--cream-soft); border-radius: var(--radius-md);">Nessun movimento in questo mese.</p>`
             : `<div class="card stack-8">${state.movements.map(movementRow).join('')}</div>`}
         </div>
       </section>
@@ -129,6 +141,18 @@ export async function mountCashVault(container, _params, _query) {
     container.querySelector('#add-in')?.addEventListener('click', () => openManualMovementModal('in'));
     container.querySelector('#add-out')?.addEventListener('click', () => openManualMovementModal('out'));
     container.querySelector('#set-baseline')?.addEventListener('click', openBaselineModal);
+    container.querySelectorAll('[data-month-nav]').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (b.dataset.monthNav === 'prev') {
+          state.month -= 1;
+          if (state.month < 0) { state.month = 11; state.year -= 1; }
+        } else {
+          state.month += 1;
+          if (state.month > 11) { state.month = 0; state.year += 1; }
+        }
+        load();
+      });
+    });
     container.querySelectorAll('[data-del]').forEach((b) => {
       b.addEventListener('click', async () => {
         const id = Number(b.dataset.del);
@@ -244,6 +268,9 @@ function formatMoney(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return '0,00';
   return n.toFixed(2).replace('.', ',');
+}
+function monthLabel(year, month /* 0-indexed */) {
+  return new Date(year, month, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
 }
 function humanDate(iso) {
   const d = new Date(iso + 'T00:00:00');
