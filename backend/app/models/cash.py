@@ -89,6 +89,11 @@ class DailySummary(AmodeiBase):
     cash_dinner_above_float: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     fiscal_total: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     ipratico_total: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    # Incassi ricevuti via bonifico bancario durante la giornata (es. eventi,
+    # catering, fatture B2B) — non passano né dal POS né dal contante, quindi
+    # senza questo campo sparivano dal totale calcolato. Un solo importo al
+    # giorno (non diviso pranzo/cena), come fiscal_total/ipratico_total.
+    bonifico_total: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     # Snapshot of the cash_float setting at close time — preserves history
     # if the global setting is changed in the future.
     cash_float_snapshot: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)

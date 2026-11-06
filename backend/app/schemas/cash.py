@@ -108,6 +108,7 @@ class DailySummaryUpdate(BaseModel):
     cash_dinner_above_float: Decimal | None = Field(default=None, ge=0)
     fiscal_total: Decimal | None = Field(default=None, ge=0)
     ipratico_total: Decimal | None = Field(default=None, ge=0)
+    bonifico_total: Decimal | None = Field(default=None, ge=0)
     notes: str | None = None
 
 
@@ -159,6 +160,7 @@ class DailySummaryOut(BaseModel):
 
     fiscal_total: Decimal | None = None
     ipratico_total: Decimal | None = None
+    bonifico_total: Decimal | None = None
     delta_fiscal: Decimal | None = None         # fiscal - computed
     delta_ipratico: Decimal | None = None       # ipratico - computed
     delta_fiscal_ipratico: Decimal | None = None  # fiscal - ipratico
