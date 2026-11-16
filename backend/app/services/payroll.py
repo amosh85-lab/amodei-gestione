@@ -204,6 +204,16 @@ def calculate_monthly_payroll(session: Session, year: int, month: int) -> dict:
     payroll_str = f"{year:04d}-{month:02d}"
     tip_shares = calculate_tip_shares(session, first, last)
 
+    # One-off, SOLO per la busta di novembre 2026: integra le mance di
+    # ottobre 2026 in quelle di novembre (richiesto esplicitamente per
+    # correggere una discrepanza nello stipendio di quel mese). Da
+    # rimuovere dopo l'uso: non è una regola permanente.
+    if year == 2026 and month == 11:
+        oct_first, oct_last = _month_bounds(2026, 10)
+        oct_shares = calculate_tip_shares(session, oct_first, oct_last)
+        for uid, amount in oct_shares.items():
+            tip_shares[uid] = tip_shares.get(uid, ZERO) + amount
+
     # Tutti gli utenti staff+manager attivi (anche senza tariffa, mostrati con flag)
     users = list(session.scalars(
         select(User)

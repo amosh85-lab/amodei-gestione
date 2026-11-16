@@ -118,7 +118,11 @@ export async function mountBenDan(container, _params, query) {
     const ben = split ? Number(split.ben_amount) : 0;
     const dan = split ? Number(split.dan_amount) : 0;
     const bonus = isBonusEligible(u) && !r.needs_configuration ? state.bonus : 0;
-    const totale = Number(r.gross_amount || 0);
+    const tips = Number(r.tips_total || 0);
+    // Totale = lordo (ore × tariffa) + mance. La mancia è GIÀ compresa qui
+    // (e quindi nella ripartizione Ben/Dan) — si mostra a parte solo come
+    // riferimento, non si sottrae una seconda volta.
+    const totale = Number(r.gross_amount || 0) + tips;
     const accBonifico = Number(r.advances_bonifico || 0);
     const accCash = Number(r.advances_cash || 0);
     const accTot = accBonifico + accCash;
@@ -126,13 +130,13 @@ export async function mountBenDan(container, _params, query) {
     const restBen = ben - accBonifico;
     const restDan = dan + bonus - accCash;
     const splitTot = ben + dan;
-    const mismatch = split && Math.abs(splitTot - totale) > 0.01;
+    const mismatch = split && Math.abs(splitTot - (totale + bonus)) > 0.01;
     return `
       <div class="card" style="padding: var(--space-12) var(--space-16); margin-bottom: var(--space-12);">
         <div style="display:flex; justify-content: space-between; align-items: baseline; gap: var(--space-8); margin-bottom: var(--space-8);">
           <div style="min-width:0; flex:1;">
             <p style="margin:0; font-weight:600; font-size: var(--text-base);">${escapeHtml(u.full_name)}</p>
-            ${mismatch ? `<p class="text-xs" style="margin:2px 0 0 0; color: var(--warning, #c9942a);">⚠ Ben+Dan (€ ${fmt(splitTot)}) ≠ Totale</p>` : ''}
+            ${mismatch ? `<p class="text-xs" style="margin:2px 0 0 0; color: var(--warning, #c9942a);">⚠ Ben+Dan (€ ${fmt(splitTot)}) ≠ Totale${bonus > 0 ? '+Bonus' : ''}</p>` : ''}
           </div>
           <button type="button" data-split="${u.id}" class="btn btn--ghost btn--sm" aria-label="Modifica Ben/Dan">${icon('edit', { size: 16 })}</button>
         </div>
@@ -141,6 +145,7 @@ export async function mountBenDan(container, _params, query) {
           ${cell('Ben',      `€ ${fmt(ben)}`,  '#2980b9')}
           ${cell('Dan',      `€ ${fmt(dan)}`,  'var(--terracotta)')}
         </div>
+        <p class="muted text-xs" style="margin: var(--space-4) 0 0 0;">di cui mancia € ${fmt(tips)}</p>
         ${bonus > 0 ? `
         <div style="margin-top: var(--space-8); padding-top: var(--space-8); border-top: 1px solid var(--border-soft);">
           ${cell('Bonus incasso del mese', `+ € ${fmt(bonus)}`, 'var(--terracotta)')}
@@ -191,12 +196,13 @@ export async function mountBenDan(container, _params, query) {
     const r = state.data.by_user.find((x) => x.user.id === userId);
     if (!r) return;
     const split = state.splits?.[userId];
-    const totale = Number(r.gross_amount || 0);
+    const tips = Number(r.tips_total || 0);
+    const totale = Number(r.gross_amount || 0) + tips;
     const refMonth = `${state.year}-${String(state.month).padStart(2, '0')}`;
     const body = `
       <form id="split-form" class="stack-12">
         <p class="muted text-sm" style="margin:0;">Ripartizione per <strong>${escapeHtml(r.user.full_name)}</strong>, ${escapeHtml(state.data.month_label)}.</p>
-        <p class="muted text-xs" style="margin:0;">Totale stipendio: <strong>€ ${fmt(totale)}</strong>. Suggerimento: la somma di Ben + Dan dovrebbe quadrare col totale.</p>
+        <p class="muted text-xs" style="margin:0;">Totale stipendio: <strong>€ ${fmt(totale)}</strong> (comprensivo di mancia € ${fmt(tips)}). Suggerimento: la somma di Ben + Dan dovrebbe quadrare col totale.</p>
         <div class="form-row">
           <label class="label" for="split-ben">Ben (bonifico) €</label>
           <input id="split-ben" class="input" type="number" min="0" step="0.01" inputmode="decimal" value="${split ? Number(split.ben_amount).toFixed(2) : ''}" placeholder="0,00" />
