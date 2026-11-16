@@ -362,12 +362,12 @@ def update_shift(
     ws = session.get(WorkShift, shift_id)
     if ws is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Turno non trovato.")
-    # Manager: solo turni delle ultime 7 giornate; admin sempre.
+    # Manager: solo turni degli ultimi 45 giorni; admin sempre.
     if actor.role != UserRole.admin:
         today = date_type.today()
-        if ws.date < today - timedelta(days=7) or ws.date > today:
+        if ws.date < today - timedelta(days=45) or ws.date > today:
             raise HTTPException(status.HTTP_403_FORBIDDEN,
-                                "Il manager può modificare turni degli ultimi 7 giorni.")
+                                "Il manager può modificare turni degli ultimi 45 giorni.")
     changes = payload.model_dump(exclude_unset=True)
     if "start_time" in changes and changes["start_time"] is not None:
         ws.start_time = changes["start_time"]

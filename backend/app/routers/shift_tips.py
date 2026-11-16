@@ -2,8 +2,13 @@
 
 La mancia è un importo unico per servizio; il payroll mensile la divide
 in parti uguali tra chi ha un work_shift su quel (date, service).
-Permessi allineati ai turni: manager può scrivere solo sugli ultimi 7
+Permessi allineati ai turni: manager può scrivere solo sugli ultimi 45
 giorni, admin sempre.
+
+Se una mancia viene inserita/modificata/eliminata per una data di un
+MESE già chiuso (diverso da quello corrente — es. si registra a dicembre
+la mancia di novembre), gli admin ricevono una push notification: il
+payroll di quel mese potrebbe essere già stato calcolato/esportato.
 """
 from __future__ import annotations
 
@@ -21,20 +26,52 @@ from app.models.shift_tips import ShiftTip
 from app.models.users import User, UserRole
 from app.models.work_shifts import WorkShift
 from app.schemas.shift_tips import ShiftTipOut, ShiftTipUpsert
+from app.services.push import send_to_admins
 
 router = APIRouter(prefix="/shift-tips", tags=["shift-tips"])
 logger = logging.getLogger("amodei.shift_tips")
 
+SERVICE_LABELS = {ServiceKind.lunch: "pranzo", ServiceKind.dinner: "cena"}
+
 
 def _check_can_modify(day: date_type, user: User) -> None:
-    """Manager: solo ultimi 7 giorni (come i turni); admin sempre."""
+    """Manager: solo ultimi 45 giorni (come i turni); admin sempre."""
     if user.role == UserRole.admin:
         return
     today = date_type.today()
-    if day < today - timedelta(days=7) or day > today:
+    if day < today - timedelta(days=45) or day > today:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            "Il manager può registrare mance solo per gli ultimi 7 giorni.",
+            "Il manager può registrare mance solo per gli ultimi 45 giorni.",
+        )
+
+
+def _alert_admins_if_prior_month(
+    session: Session, *, day: date_type, service: ServiceKind, user: User, action: str,
+) -> None:
+    """Notifica gli admin quando una mancia viene toccata per un mese già
+    chiuso rispetto a oggi — il payroll di quel mese potrebbe essere già
+    stato calcolato. Non blocca mai l'operazione, solo errori non fatali."""
+    today = date_type.today()
+    if (day.year, day.month) >= (today.year, today.month):
+        return
+    try:
+        send_to_admins(
+            session,
+            title="Mancia di un mese chiuso",
+            body=(
+                f"{user.full_name} ha {action} la mancia del "
+                f"{day.strftime('%d/%m/%Y')} ({SERVICE_LABELS.get(service, service)}) "
+                f"— mese già passato, verifica il payroll."
+            ),
+            url=f"/turni?date={day.isoformat()}&service={service.value}",
+            tag=f"shift-tip-prior-month-{day.isoformat()}-{service.value}",
+            exclude_user_id=user.id,
+        )
+    except Exception:
+        logger.exception(
+            "Push alert mese-chiuso fallito (non-fatale) per shift-tip date=%s service=%s",
+            day.isoformat(), service.value,
         )
 
 
@@ -78,6 +115,9 @@ def upsert_tip(
     session.refresh(row)
     logger.info("ShiftTip upsert: id=%d date=%s service=%s amount=%s by=%d",
                 row.id, row.date, payload.service, row.amount, user.id)
+    _alert_admins_if_prior_month(
+        session, day=row.date, service=service_enum, user=user, action="inserito/modificato",
+    )
     return _hydrate(session, row)
 
 
@@ -113,6 +153,10 @@ def delete_tip(
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Mancia non trovata.")
     _check_can_modify(row.date, user)
+    day, service = row.date, row.service
     session.delete(row)
     session.commit()
     logger.info("ShiftTip %d eliminata by user_id=%d", tip_id, user.id)
+    _alert_admins_if_prior_month(
+        session, day=day, service=service, user=user, action="eliminato",
+    )
