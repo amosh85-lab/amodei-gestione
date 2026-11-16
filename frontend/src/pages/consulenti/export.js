@@ -5,9 +5,10 @@
 //    mancia (sempre, dall'app), giorni di malattia (solo se presenti).
 //  - "PER AMOS": per dipendente, Totale (lordo + mance, SENZA bonus) — Ben
 //    (inserito a mano in Stipendi → Ben/Dan) — Mancia — Bonus (solo Marco,
-//    voce assente per tutti gli altri) — Dan = Totale + Bonus − (Ben + Mancia).
-//    Nota: le mance si sottraggono nel Dan perché vengono già girate ai
-//    dipendenti durante il mese (non restano nella busta cash di fine mese).
+//    voce assente per tutti gli altri) — Dan = (Totale + Bonus) − Ben.
+//    La mancia è GIÀ COMPRESA nel Totale (e quindi nella ripartizione
+//    Ben/Dan): si mostra separatamente solo come riferimento, non si
+//    sottrae una seconda volta dal Dan.
 //    Poi gli acconti già dati nel mese (bonifico → scalati dal Ben, contanti
 //    → scalati dal Dan) e quindi quanto resta ancora da dare: Ben da dare /
 //    Dan da dare.
@@ -68,7 +69,8 @@ export async function mountConsulentiExport(container, _params, query) {
         // "Totale" qui = lordo + mance, SENZA bonus (il bonus è una voce a
         // parte, solo per Marco — vedi commento in testa al file).
         const totale = computable ? Number(r.gross_amount) + tips : null;
-        const dan = computable ? (totale + bonus) - (ben + tips) : null;
+        // La mancia è già dentro "totale": NON si sottrae di nuovo qui.
+        const dan = computable ? (totale + bonus) - ben : null;
         const accBonifico = Number(r.advances_bonifico) || 0;
         const accCash = Number(r.advances_cash) || 0;
         // Ben (manuale) e gli acconti non dipendono dalla tariffa configurata:
@@ -110,7 +112,7 @@ export async function mountConsulentiExport(container, _params, query) {
 
         <h2 style="margin: var(--space-24) 0 var(--space-8) 0; font-family: var(--font-display); font-size: var(--text-lg);">Per Amos</h2>
         <p class="muted text-xs" style="margin: 0 0 var(--space-8) 0;">
-          Dan = Totale (lordo+mance) + Bonus − (Ben + Mancia): le mance escono dal Dan perché già girate ai dipendenti durante il mese.
+          Dan = (Totale + Bonus) − Ben. Il Totale è già comprensivo della mancia (mostrata a parte solo come riferimento).
           Acconti già dati nel mese scalati dal Ben (bonifico) o dal Dan (contanti) → "Ben/Dan da dare" è quanto resta ancora da versare.
           Controlla i numeri prima di usarli: se la logica non è quella che intendevi, dimmelo e la correggo.
         </p>
