@@ -397,10 +397,13 @@ async function loadAdvancesCard() {
   const slot = document.getElementById('home-advances');
   if (!slot) return;
   const today = new Date();
-  const monthStart = localIso(new Date(today.getFullYear(), today.getMonth(), 1));
+  // Filtro per reference_month (busta a cui l'acconto è imputato), NON per
+  // data di erogazione: un acconto dato il 5/11 ma riferito a ottobre non
+  // deve comparire nella card di novembre.
+  const refMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   let advances;
   try {
-    advances = await apiGet(`/advances?from_date=${monthStart}`);
+    advances = await apiGet(`/advances?reference_month=${refMonth}`);
   } catch { return; }
 
   const total = advances.reduce((acc, a) => acc + Number(a.amount), 0);
