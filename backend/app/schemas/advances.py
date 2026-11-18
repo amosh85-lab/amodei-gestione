@@ -51,6 +51,7 @@ class EmployeeAdvanceOut(BaseModel):
     service: Literal["lunch", "dinner"]
     user: UserMini
     amount: Decimal
+    payment_method: Literal["cash", "bonifico"] = "cash"
     notes: str | None = None
     receipt_photo_url: str | None = None
     created_by: UserMini

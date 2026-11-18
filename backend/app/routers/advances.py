@@ -95,6 +95,7 @@ def _hydrate(advance: EmployeeAdvance, session: Session) -> EmployeeAdvanceOut:
         service=advance.service.value if hasattr(advance.service, "value") else advance.service,
         user=user,
         amount=advance.amount,
+        payment_method=advance.payment_method,
         notes=advance.notes,
         receipt_photo_url=advance.receipt_photo_url,
         created_by=created_by,

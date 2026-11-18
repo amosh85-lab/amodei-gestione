@@ -92,6 +92,9 @@ function mountAdminHome(container, user) {
 
       <!-- CASSAFORTE: saldo + ultimi movimenti (solo admin) -->
       <div id="home-vault" style="margin-top: 12px;"></div>
+
+      <!-- ACCONTI del mese in corso, dettagliati (solo admin) -->
+      <div id="home-advances" style="margin-top: 12px;"></div>
     </div>
     ` : ''}
 
@@ -157,6 +160,7 @@ function mountAdminHome(container, user) {
     loadIncassoCard();
     loadTrendsCard();
     loadVaultCard();
+    loadAdvancesCard();
   }
   loadNotifications(container);
 
@@ -385,6 +389,47 @@ async function loadVaultCard() {
   slot.querySelectorAll('[data-go]').forEach((b) => {
     b.addEventListener('click', () => navigate(b.dataset.go));
   });
+}
+
+// ---- Acconti del mese in corso, dettagliati (solo admin) ----
+
+async function loadAdvancesCard() {
+  const slot = document.getElementById('home-advances');
+  if (!slot) return;
+  const today = new Date();
+  const monthStart = localIso(new Date(today.getFullYear(), today.getMonth(), 1));
+  let advances;
+  try {
+    advances = await apiGet(`/advances?from_date=${monthStart}`);
+  } catch { return; }
+
+  const total = advances.reduce((acc, a) => acc + Number(a.amount), 0);
+  const monthLabel = today.toLocaleDateString('it-IT', { month: 'long' });
+
+  const rowsHtml = advances.length === 0
+    ? `<p class="muted text-xs" style="margin: 8px 0 0 0;">Nessun acconto dato questo mese.</p>`
+    : advances.map((a) => {
+        const methodLabel = a.payment_method === 'bonifico' ? 'bonifico' : 'cash';
+        return `
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border-soft);">
+            <div style="min-width:0; flex:1;">
+              <p style="margin:0; font-size: 13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(a.user?.full_name || `#${a.user?.id}`)}</p>
+              <p style="margin:0; font-size: 11px; color: var(--ink-muted);">${humanDateShort(a.date)} · ${methodLabel}</p>
+            </div>
+            <span class="font-display" style="font-size: 14px; color: var(--terracotta-dark); white-space:nowrap;">€ ${fmtThousands(a.amount)}</span>
+          </div>
+        `;
+      }).join('');
+
+  slot.innerHTML = `
+    <div style="background: var(--off-white); border-radius: 16px; box-shadow: 0 4px 24px rgba(42,31,26,0.10); padding: 16px 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-muted); font-weight: 600;">Acconti di ${esc(monthLabel)}</span>
+        <span class="font-display" style="font-size: 14px; font-weight: 700; color: var(--ink);">€ ${fmtThousands(total)}</span>
+      </div>
+      <div style="margin-top: 6px; max-height: 240px; overflow-y: auto;">${rowsHtml}</div>
+    </div>
+  `;
 }
 
 function humanDateShort(iso) {
